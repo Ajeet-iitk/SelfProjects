@@ -15,13 +15,21 @@ The background is a single canvas that renders the whole reef:
 - **God rays, marine snow and rising bubbles** drifting through the water.
 - **Schools of fish** across three depth layers, plus jellyfish and the occasional manta ray.
 - **Coral, kelp and a sunken ship** along the sea floor.
+- **Deep-sea visitors** that join as you scroll: a turtle, then sharks, a whale and glowing
+  anglerfish. Each species enters at its own scroll depth, and going back up lets them swim
+  away again.
 - **Cursor ripples** — moving the pointer leaves expanding rings, and clicking makes a
   bigger splash with a small burst of bubbles.
+- **Creatures that notice the pointer** — small fish scatter, sharks turn and trail your
+  cursor, turtles dart away, whales ease toward your depth and an anglerfish leans its lure
+  toward you. Clicking startles anything nearby.
 - **Two palettes:** the day/night toggle now switches between a sunlit shallow reef and a
-  deep, bioluminescent sea.
+  deep, bioluminescent sea. Scrolling down deepens the water in both.
+- **A fish favicon** (`assets/favicon.svg`, plus a 180 px Apple touch icon) in the same
+  glowing deep-teal style.
 
 The scene pauses when the tab is hidden and draws a single static frame when the visitor
-prefers reduced motion (ripples are disabled in that case).
+prefers reduced motion (ripples and pointer reactions are disabled in that case).
 
 ## Background music
 
@@ -41,10 +49,12 @@ portfolio/
 ├── assets/
 │   ├── css/style.css           all styling
 │   ├── audio/                  background track
+│   ├── favicon.svg             fish favicon (also linked from index.html)
+│   ├── favicon-180.png         Apple touch icon
 │   └── js/
 │       ├── projects.js         ← the only file you edit
 │       ├── app.js              rendering, GitHub API, filters, lightbox
-│       ├── background.js       underwater canvas scene + ripples
+│       ├── background.js       underwater canvas scene, creatures + ripples
 │       ├── player.js           navbar music player
 │       └── theme.js            reef / deep-sea theme toggle
 ├── thumbnails/                 ← drop screenshots here
@@ -201,5 +211,7 @@ Colours, spacing and type live in `:root` at the top of `assets/css/style.css`:
 ```
 
 Card accents cycle through `ACCENTS` in `assets/js/app.js`. The reef palettes (fish, coral,
-wreck, ripples) live in `PALETTES` at the top of `assets/js/background.js`. The hero copy and
-the "How this shelf works" section are plain HTML in `index.html`.
+wreck, ripples, deep-sea creatures) live in `PALETTES` at the top of
+`assets/js/background.js`. The scroll depths at which each deep-sea species appears are set in
+`DEEP_SPAWN_AT`, just below `makeBubble`. The hero copy and the "How this shelf works" section
+are plain HTML in `index.html`.

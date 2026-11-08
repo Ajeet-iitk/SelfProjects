@@ -4,6 +4,8 @@
    - god rays, drifting marine snow and rising bubbles
    - schools of fish, jellyfish and the occasional manta ray
    - a coral reef and a sunken ship along the sea floor
+   - deeper visitors (turtles, sharks, a whale, anglerfish) that appear as
+     the page is scrolled and react to the pointer
    - ripples and bubble bursts that follow the pointer
    Day = sunlit shallow water, night = deep bioluminescent sea.
    Pauses when the tab is hidden; renders one static frame when the visitor
@@ -51,6 +53,17 @@
       reefLight: "#0d5560",
       reefEdge: "rgba(80, 205, 220, 0.28)",
       wreck: "#051f28",
+      whale: "rgba(2, 13, 19, 0.92)",
+      whaleLine: "rgba(126, 232, 250, 0.34)",
+      shark: "rgba(1, 9, 14, 0.94)",
+      sharkLine: "rgba(140, 236, 250, 0.32)",
+      turtleShell: "rgba(3, 24, 30, 0.95)",
+      turtleSkin: "rgba(6, 36, 42, 0.95)",
+      turtleLine: "rgba(110, 245, 214, 0.5)",
+      angler: "rgba(2, 12, 17, 0.95)",
+      anglerLine: "rgba(130, 236, 246, 0.36)",
+      lure: "rgba(150, 255, 220, 0.95)",
+      creatureEye: "rgba(200, 250, 255, 0.85)",
       fish: ["#8fe3f2", "#6cc8e8", "#ffd173", "#ff9d7a", "#a8f0d8", "#c9b6ff"],
       fishLine: "rgba(3, 18, 26, 0.55)",
       jelly: ["rgba(120, 232, 255, 0.55)", "rgba(186, 148, 255, 0.5)", "rgba(120, 255, 214, 0.45)"],
@@ -71,6 +84,17 @@
       reefLight: "#2f9aa8",
       reefEdge: "rgba(255, 255, 255, 0.5)",
       wreck: "#2c7f8c",
+      whale: "rgba(23, 96, 112, 0.42)",
+      whaleLine: "rgba(255, 255, 255, 0.5)",
+      shark: "rgba(17, 79, 94, 0.52)",
+      sharkLine: "rgba(255, 255, 255, 0.45)",
+      turtleShell: "rgba(20, 104, 96, 0.6)",
+      turtleSkin: "rgba(26, 122, 112, 0.7)",
+      turtleLine: "rgba(255, 255, 255, 0.55)",
+      angler: "rgba(14, 68, 82, 0.68)",
+      anglerLine: "rgba(255, 255, 255, 0.4)",
+      lure: "rgba(255, 232, 140, 0.95)",
+      creatureEye: "rgba(255, 255, 255, 0.9)",
       fish: ["#1d7f9f", "#2b9cc0", "#e8931f", "#e7653f", "#2f9c84", "#6a74c9"],
       fishLine: "rgba(240, 252, 255, 0.7)",
       jelly: ["rgba(64, 190, 210, 0.6)", "rgba(120, 200, 240, 0.5)", "rgba(230, 150, 190, 0.45)"],
@@ -97,6 +121,12 @@
   let mantaTimer = 12;
   let reefSprite = null;
   let reefH = 0;
+
+  let deep = [];
+  let deepTimer = 1;
+  let scrollProgress = 0;
+
+  const pointer = { x: -9999, y: -9999, active: false, at: 0 };
 
   let raf = 0;
   let last = 0;
@@ -356,6 +386,8 @@
       wobble: rand(4, 16),
       z: rand(zRange[0], zRange[1]),
       alpha: rand(alphaRange[0], alphaRange[1]),
+      vx: 0,
+      vy: 0,
       color: pick(P.fish),
       kind: Math.random() < 0.18 ? "clown" : Math.random() < 0.3 ? "tang" : "plain",
     };
@@ -437,6 +469,85 @@
   }
 
   /* ------------------------------------------------------------------ */
+  /* deeper visitors                                                     */
+  /* ------------------------------------------------------------------ */
+
+  // Each threshold is the scroll progress at which a creature joins the
+  // scene (0 = top of the page, 1 = bottom).
+  const DEEP_SPAWN_AT = {
+    turtle: [0.14],
+    shark: [0.28, 0.64],
+    whale: [0.44],
+    angler: [0.56, 0.8],
+  };
+
+  function targetCount(type, bias = 0) {
+    const p = scrollProgress + bias;
+    let n = 0;
+    for (const at of DEEP_SPAWN_AT[type]) if (p >= at) n += 1;
+    return n;
+  }
+
+  function pointerIsOn() {
+    return !reduce.matches && pointer.active && performance.now() - pointer.at < 4200;
+  }
+
+  function makeDeep(type) {
+    const dir = Math.random() < 0.5 ? -1 : 1;
+    const c = {
+      type,
+      dir,
+      phase: rand(0, TAU),
+      startle: 0,
+      leaving: false,
+      speedMul: 1,
+      z: 0.6,
+      size: 60,
+      speed: 20,
+      amp: 10,
+      w: 0.4,
+      x: 0,
+      y: 0,
+      baseY: 0,
+      entering: true,
+    };
+
+    if (type === "whale") {
+      c.size = rand(170, 250);
+      c.z = 0.34;
+      c.speed = rand(9, 16);
+      c.amp = rand(5, 14);
+      c.w = rand(0.2, 0.4);
+      c.y = rand(H * 0.24, H * 0.55);
+    } else if (type === "shark") {
+      c.size = rand(70, 112);
+      c.z = rand(0.55, 0.7);
+      c.speed = rand(28, 42);
+      c.amp = rand(8, 18);
+      c.w = rand(0.35, 0.6);
+      c.y = rand(H * 0.3, H * 0.68);
+    } else if (type === "turtle") {
+      c.size = rand(42, 62);
+      c.z = 0.82;
+      c.speed = rand(14, 20);
+      c.amp = rand(5, 11);
+      c.w = rand(0.3, 0.55);
+      c.y = rand(H * 0.36, H * 0.72);
+    } else {
+      c.size = rand(26, 38);
+      c.z = 0.88;
+      c.speed = rand(10, 15);
+      c.amp = rand(6, 12);
+      c.w = rand(0.4, 0.7);
+      c.y = rand(H * 0.44, H * 0.78);
+    }
+
+    c.baseY = c.y;
+    c.x = dir > 0 ? -c.size * 0.7 : W + c.size * 0.7;
+    return c;
+  }
+
+  /* ------------------------------------------------------------------ */
   /* drawing helpers                                                     */
   /* ------------------------------------------------------------------ */
 
@@ -478,7 +589,8 @@
     ctx.save();
     ctx.translate(f.x, f.y + Math.sin(t * (0.6 + f.z * 0.5) + f.phase) * f.wobble);
     ctx.rotate(Math.sin(t * 0.7 + f.phase) * 0.05 * f.dir);
-    ctx.scale(f.dir * s, s);
+    // The fish is drawn facing left, so mirror it when it swims right.
+    ctx.scale(-f.dir * s, s);
     ctx.globalAlpha = f.alpha;
 
     // tail
@@ -638,6 +750,353 @@
     ctx.restore();
   }
 
+  /* ------------------------------------------------------------------ */
+  /* deep-sea visitors: drawing                                          */
+  /* ------------------------------------------------------------------ */
+
+  function drawDeep(c, t) {
+    if (c.type === "whale") drawWhale(c, t);
+    else if (c.type === "shark") drawShark(c, t);
+    else if (c.type === "turtle") drawTurtle(c, t);
+    else drawAngler(c, t);
+  }
+
+  function drawWhale(c, t) {
+    const s = c.size / 210;
+    const bob = Math.sin(t * 0.5 + c.phase) * 4;
+    const fluke = Math.sin(t * 0.8 + c.phase);
+
+    ctx.save();
+    ctx.translate(c.x, c.y + bob);
+    ctx.scale(c.dir * s, s);
+    ctx.globalAlpha = theme === "dark" ? 0.9 : 0.72;
+
+    ctx.fillStyle = P.whale;
+
+    // tail flukes
+    ctx.beginPath();
+    ctx.moveTo(-86, -2);
+    ctx.bezierCurveTo(-108, -10 + fluke * 6, -124, -22 + fluke * 8, -132, -30 + fluke * 8);
+    ctx.bezierCurveTo(-116, -16 + fluke * 5, -100, -8 + fluke * 3, -94, 0);
+    ctx.bezierCurveTo(-100, 8 + fluke * 3, -116, 16 + fluke * 5, -132, 30 + fluke * 8);
+    ctx.bezierCurveTo(-124, 22 + fluke * 8, -108, 10 + fluke * 6, -86, 2);
+    ctx.closePath();
+    ctx.fill();
+
+    // body
+    ctx.beginPath();
+    ctx.moveTo(98, 1);
+    ctx.bezierCurveTo(86, -24, 44, -38, -8, -34);
+    ctx.bezierCurveTo(-46, -31, -74, -18, -92, -2);
+    ctx.bezierCurveTo(-74, 14, -46, 27, -8, 30);
+    ctx.bezierCurveTo(44, 34, 86, 22, 98, 1);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = P.whaleLine;
+    ctx.lineWidth = 1.3;
+    ctx.stroke();
+
+    // pectoral fin
+    ctx.beginPath();
+    ctx.moveTo(38, 18);
+    ctx.quadraticCurveTo(30, 44, 6, 56);
+    ctx.quadraticCurveTo(14, 34, 16, 20);
+    ctx.closePath();
+    ctx.fill();
+
+    // dorsal fin
+    ctx.beginPath();
+    ctx.moveTo(-40, -30);
+    ctx.quadraticCurveTo(-48, -44, -58, -44);
+    ctx.quadraticCurveTo(-54, -34, -56, -26);
+    ctx.closePath();
+    ctx.fill();
+
+    // mouth line
+    ctx.strokeStyle = P.whaleLine;
+    ctx.lineWidth = 2;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(96, 6);
+    ctx.quadraticCurveTo(70, 14, 48, 10);
+    ctx.stroke();
+
+    // eye
+    ctx.fillStyle = P.creatureEye;
+    ctx.beginPath();
+    ctx.arc(66, -6, 2.6, 0, TAU);
+    ctx.fill();
+
+    // belly pleats
+    ctx.strokeStyle = P.whaleLine;
+    ctx.lineWidth = 1.4;
+    for (let i = 0; i < 3; i += 1) {
+      ctx.beginPath();
+      ctx.moveTo(92 - i * 8, 10 + i * 5);
+      ctx.quadraticCurveTo(58 - i * 10, 22 + i * 5, 20 - i * 8, 20 + i * 5);
+      ctx.stroke();
+    }
+
+    // back highlight
+    ctx.strokeStyle = P.whaleLine;
+    ctx.lineWidth = 2.4;
+    ctx.beginPath();
+    ctx.moveTo(80, -22);
+    ctx.quadraticCurveTo(36, -34, -20, -30);
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
+  function drawShark(c, t) {
+    const s = c.size / 100;
+    const sway = Math.sin(t * 1.5 + c.phase);
+
+    ctx.save();
+    ctx.translate(c.x, c.y);
+    ctx.scale(c.dir * s, s);
+    ctx.globalAlpha = theme === "dark" ? 0.92 : 0.75;
+
+    ctx.fillStyle = P.shark;
+
+    // tail
+    ctx.beginPath();
+    ctx.moveTo(-40, 0);
+    ctx.quadraticCurveTo(-54, -2 + sway * 2, -64, -20 + sway * 5);
+    ctx.quadraticCurveTo(-50, -8, -44, -1);
+    ctx.quadraticCurveTo(-50, 6, -46, 12 + sway * 4);
+    ctx.quadraticCurveTo(-54, 8 + sway * 4, -40, 0);
+    ctx.closePath();
+    ctx.fill();
+
+    // body
+    ctx.beginPath();
+    ctx.moveTo(66, 0);
+    ctx.bezierCurveTo(48, -16, 12, -22, -26, -10);
+    ctx.quadraticCurveTo(-40, -4, -40, 0);
+    ctx.quadraticCurveTo(-40, 5, -26, 10);
+    ctx.bezierCurveTo(12, 22, 48, 16, 66, 0);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = P.sharkLine;
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+
+    // dorsal fin
+    ctx.beginPath();
+    ctx.moveTo(-2, -18);
+    ctx.lineTo(-12, -46);
+    ctx.lineTo(-28, -16);
+    ctx.closePath();
+    ctx.fill();
+
+    // pectoral fin
+    ctx.beginPath();
+    ctx.moveTo(16, 8);
+    ctx.quadraticCurveTo(10, 26, -8, 30);
+    ctx.quadraticCurveTo(2, 16, 2, 9);
+    ctx.closePath();
+    ctx.fill();
+
+    // gills
+    ctx.strokeStyle = P.sharkLine;
+    ctx.lineWidth = 1.6;
+    for (let i = 0; i < 3; i += 1) {
+      ctx.beginPath();
+      ctx.moveTo(40 - i * 5, -6 + i * 2);
+      ctx.quadraticCurveTo(38 - i * 5, 2 + i * 2, 40 - i * 5, 8 + i * 2);
+      ctx.stroke();
+    }
+
+    // eye
+    ctx.fillStyle = P.creatureEye;
+    ctx.beginPath();
+    ctx.arc(50, -4, 2, 0, TAU);
+    ctx.fill();
+
+    // mouth hint
+    ctx.strokeStyle = P.sharkLine;
+    ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    ctx.moveTo(64, 4);
+    ctx.quadraticCurveTo(54, 8, 46, 7);
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
+  function drawTurtle(c, t) {
+    const s = c.size / 50;
+    const paddle = Math.sin(t * 1.25 + c.phase);
+    const bob = Math.sin(t * 0.8 + c.phase) * 3;
+
+    ctx.save();
+    ctx.translate(c.x, c.y + bob);
+    ctx.scale(c.dir * s, s);
+    ctx.globalAlpha = theme === "dark" ? 0.9 : 0.78;
+
+    // rear flipper
+    ctx.save();
+    ctx.translate(-19, 8);
+    ctx.rotate(0.5 - paddle * 0.4);
+    ctx.fillStyle = P.turtleSkin;
+    ctx.beginPath();
+    ctx.ellipse(0, 8, 6, 12, 0, 0, TAU);
+    ctx.fill();
+    ctx.restore();
+
+    // front flipper (near)
+    ctx.save();
+    ctx.translate(16, 6);
+    ctx.rotate(-0.5 + paddle * 0.5);
+    ctx.fillStyle = P.turtleSkin;
+    ctx.beginPath();
+    ctx.ellipse(0, 13, 9, 18, 0, 0, TAU);
+    ctx.fill();
+    ctx.restore();
+
+    // shell
+    ctx.fillStyle = P.turtleShell;
+    ctx.strokeStyle = P.turtleLine;
+    ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    ctx.ellipse(-2, 0, 27, 19, 0, 0, TAU);
+    ctx.fill();
+    ctx.stroke();
+
+    // shell plates
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.ellipse(-2, 0, 12, 9, 0, 0, TAU);
+    ctx.stroke();
+    for (let i = 0; i < 5; i += 1) {
+      const a = (i / 5) * TAU + 0.4;
+      ctx.beginPath();
+      ctx.moveTo(-2 + Math.cos(a) * 12, Math.sin(a) * 9);
+      ctx.lineTo(-2 + Math.cos(a) * 26, Math.sin(a) * 18.5);
+      ctx.stroke();
+    }
+
+    // head + eye
+    ctx.fillStyle = P.turtleSkin;
+    ctx.beginPath();
+    ctx.ellipse(28, -3, 9, 7, -0.16, 0, TAU);
+    ctx.fill();
+    ctx.fillStyle = P.creatureEye;
+    ctx.beginPath();
+    ctx.arc(31, -6, 1.6, 0, TAU);
+    ctx.fill();
+
+    // tail
+    ctx.fillStyle = P.turtleSkin;
+    ctx.beginPath();
+    ctx.moveTo(-28, 3);
+    ctx.lineTo(-38, 8);
+    ctx.lineTo(-27, 10);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  function drawAngler(c, t) {
+    const s = c.size / 40;
+    const wag = Math.sin(t * 2.4 + c.phase);
+    const bob = Math.sin(t * 1.1 + c.phase) * 2;
+
+    // The lure leans toward the pointer when it is nearby.
+    let reachX = 0;
+    let reachY = 0;
+    if (pointerIsOn()) {
+      const dx = pointer.x - c.x;
+      const dy = pointer.y - c.y;
+      const d = Math.hypot(dx, dy);
+      if (d < 230 && d > 1) {
+        const k = 1 - d / 230;
+        reachX = c.dir * (dx / d) * 21 * k;
+        reachY = (dy / d) * 15 * k;
+      }
+    }
+
+    ctx.save();
+    ctx.translate(c.x, c.y + bob);
+    ctx.scale(c.dir * s, s);
+    ctx.globalAlpha = theme === "dark" ? 0.95 : 0.8;
+
+    // tail
+    ctx.fillStyle = P.angler;
+    ctx.beginPath();
+    ctx.moveTo(-16, 0);
+    ctx.quadraticCurveTo(-26, -10 + wag * 3, -34, -16 + wag * 4);
+    ctx.quadraticCurveTo(-28, 0, -34, 16 + wag * 4);
+    ctx.quadraticCurveTo(-26, 10 + wag * 3, -16, 0);
+    ctx.closePath();
+    ctx.fill();
+
+    // body
+    ctx.beginPath();
+    ctx.moveTo(26, 4);
+    ctx.bezierCurveTo(24, -16, 2, -26, -12, -14);
+    ctx.bezierCurveTo(-24, -4, -22, 14, -10, 20);
+    ctx.bezierCurveTo(4, 27, 24, 18, 26, 4);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = P.anglerLine;
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+
+    // jaw
+    ctx.strokeStyle = P.anglerLine;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(26, 4);
+    ctx.quadraticCurveTo(14, 12, 2, 14);
+    ctx.stroke();
+
+    // teeth
+    ctx.fillStyle = "rgba(240, 255, 250, 0.85)";
+    for (let i = 0; i < 4; i += 1) {
+      const x = 20 - i * 5;
+      const y = 6 + i * 1.9;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x - 1.6, y + 3.4);
+      ctx.lineTo(x + 1.6, y + 2.4);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    // eye
+    ctx.fillStyle = P.creatureEye;
+    ctx.beginPath();
+    ctx.arc(10, -7, 2.2, 0, TAU);
+    ctx.fill();
+    ctx.fillStyle = "rgba(2, 14, 18, 0.85)";
+    ctx.beginPath();
+    ctx.arc(10.5, -7, 1, 0, TAU);
+    ctx.fill();
+
+    // lure rod
+    ctx.strokeStyle = P.anglerLine;
+    ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    ctx.moveTo(8, -18);
+    ctx.quadraticCurveTo(6, -34, 18 + reachX, -36 + reachY);
+    ctx.stroke();
+
+    // glowing bulb
+    ctx.save();
+    ctx.shadowColor = P.lure;
+    ctx.shadowBlur = theme === "dark" ? 20 : 10;
+    ctx.fillStyle = P.lure;
+    ctx.beginPath();
+    ctx.arc(18 + reachX, -36 + reachY, 3.4, 0, TAU);
+    ctx.fill();
+    ctx.restore();
+
+    ctx.restore();
+  }
+
   function drawBubbles() {
     for (const b of bubbles) {
       ctx.globalAlpha = b.alpha;
@@ -720,7 +1179,14 @@
   /* sizing                                                              */
   /* ------------------------------------------------------------------ */
 
+  function measureScroll() {
+    const max = Math.max(1, document.documentElement.scrollHeight - H);
+    scrollProgress = clamp(window.scrollY / max, 0, 1);
+  }
+
   function resize() {
+    const prevW = W;
+
     DPR = Math.min(window.devicePixelRatio || 1, 2);
     W = window.innerWidth;
     H = window.innerHeight;
@@ -733,6 +1199,12 @@
 
     buildFish();
     buildReef();
+
+    // A big width change means a new layout: let the deep visitors respawn.
+    if (Math.abs(W - prevW) > 80) deep = [];
+    for (const c of deep) c.baseY = clamp(c.baseY, H * 0.15, H * 0.78);
+
+    measureScroll();
   }
 
   /* ------------------------------------------------------------------ */
@@ -763,9 +1235,125 @@
     }
   }
 
+  function updateDeep(dt, t) {
+    const on = pointerIsOn();
+
+    // Spawn newcomers slowly as the page is scrolled further down.
+    deepTimer -= dt;
+    if (deepTimer <= 0) {
+      let spawned = false;
+      for (const type of ["turtle", "shark", "whale", "angler"]) {
+        const have = deep.filter((c) => c.type === type && !c.leaving).length;
+        if (have < targetCount(type)) {
+          deep.push(makeDeep(type));
+          spawned = true;
+          break;
+        }
+      }
+      deepTimer = spawned ? rand(0.8, 1.8) : 0.5;
+    }
+
+    // Retire the newest of each species when scrolling back towards daylight.
+    const seen = { turtle: 0, shark: 0, whale: 0, angler: 0 };
+    for (const c of deep) {
+      const index = seen[c.type]++;
+      const want = targetCount(c.type, 0.05);
+      if (index >= want && !c.leaving) c.leaving = true;
+      if (index < want && c.leaving) c.leaving = false;
+    }
+
+    for (let i = deep.length - 1; i >= 0; i -= 1) {
+      const c = deep[i];
+      const dxp = pointer.x - c.x;
+      const dyp = pointer.y - c.y;
+      const dist = Math.hypot(dxp, dyp);
+
+      c.startle = Math.max(0, c.startle - dt);
+
+      if (c.leaving) {
+        c.dir = c.x < W * 0.5 ? -1 : 1;
+        c.speedMul += (2.3 - c.speedMul) * Math.min(1, dt * 3);
+      } else if (c.startle > 0) {
+        c.speedMul += (1.7 - c.speedMul) * Math.min(1, dt * 4);
+      } else if (c.entering) {
+        c.speedMul += (1.9 - c.speedMul) * Math.min(1, dt * 3);
+      } else {
+        c.speedMul += (1 - c.speedMul) * Math.min(1, dt * 2);
+      }
+
+      c.x += c.dir * c.speed * c.speedMul * dt;
+
+      if (c.entering) {
+        const inside = c.x > c.size * 0.12 && c.x < W - c.size * 0.12;
+        if (inside) c.entering = false;
+      }
+
+      let ty = c.baseY + Math.sin(t * c.w + c.phase) * c.amp;
+
+      // Each species reacts differently to the pointer.
+      if (on && !c.leaving) {
+        if (c.type === "whale" && dist < 520) {
+          ty += (pointer.y * 0.75 + c.baseY * 0.25 - ty) * 0.55;
+        } else if (c.type === "shark" && dist < 360) {
+          const wantDir = dist < 100 ? (dxp > 0 ? -1 : 1) : dxp > 0 ? 1 : -1;
+          if (Math.abs(dxp) > 26) c.dir = wantDir;
+          c.speedMul = Math.max(c.speedMul, 1.35);
+          ty += (pointer.y - ty) * 0.4;
+        } else if (c.type === "turtle" && dist < 190) {
+          c.dir = dxp > 0 ? -1 : 1;
+          ty = c.y - Math.sign(dyp || 1) * 46;
+          c.speedMul = Math.max(c.speedMul, 1.8);
+        } else if (c.type === "angler" && dist < 270) {
+          ty += (pointer.y - ty) * 0.35;
+        }
+      }
+
+      c.y += (ty - c.y) * Math.min(1, dt * 1.6);
+      c.y = clamp(c.y, H * 0.12, H * 0.78);
+
+      if (c.leaving) {
+        const margin = c.size * 2 + 60;
+        if ((c.dir > 0 && c.x > W + margin) || (c.dir < 0 && c.x < -margin)) {
+          deep.splice(i, 1);
+        }
+      }
+    }
+
+    if (deep.length > 8) deep.splice(0, deep.length - 8);
+  }
+
   function update(dt, t) {
+    const on = pointerIsOn();
+
     for (const f of fish) {
-      f.x += f.dir * f.speed * f.z * dt;
+      // Fish scatter away from the pointer but never swim backwards.
+      if (on) {
+        const dx = f.x - pointer.x;
+        const dy = f.y - pointer.y;
+        const d = Math.hypot(dx, dy);
+        const radius = 110 + f.size * 2;
+        if (d < radius && d > 0.5) {
+          const k = (1 - d / radius) * 620;
+          f.vx += (dx / d) * k * dt;
+          f.vy += (dy / d) * k * dt;
+        }
+      }
+
+      f.vx *= Math.pow(0.14, dt);
+      f.vy *= Math.pow(0.2, dt);
+
+      const base = f.dir * f.speed * f.z;
+      let move = base + f.vx;
+      // Keep at least a little forward motion so the sprite never faces
+      // against its travel direction.
+      if (f.dir > 0) move = Math.max(move, base * 0.3);
+      else move = Math.min(move, base * 0.3);
+
+      f.x += move * dt;
+      f.y += f.vy * dt;
+      f.y += (f.baseY - f.y) * Math.min(1, dt * 0.7);
+      f.y = clamp(f.y, H * 0.05, H * 0.9);
+
       const margin = 90;
       if (f.dir > 0 && f.x > W + margin) {
         f.x = -margin;
@@ -777,6 +1365,8 @@
         f.baseY = f.y;
       }
     }
+
+    updateDeep(dt, t);
 
     for (const j of jellies) {
       j.y -= j.speed * dt;
@@ -857,12 +1447,35 @@
     ctx.fillStyle = tint;
     ctx.fillRect(0, 0, W, H);
 
+    // going down the page feels deeper
+    if (scrollProgress > 0.015) {
+      const d = scrollProgress;
+      const depth = ctx.createLinearGradient(0, 0, 0, H);
+      if (theme === "dark") {
+        depth.addColorStop(0, `rgba(2, 18, 26, ${0.03 + d * 0.18})`);
+        depth.addColorStop(1, `rgba(0, 7, 11, ${0.06 + d * 0.2})`);
+      } else {
+        depth.addColorStop(0, `rgba(30, 110, 135, ${0.03 + d * 0.1})`);
+        depth.addColorStop(1, `rgba(12, 66, 88, ${0.05 + d * 0.16})`);
+      }
+      ctx.fillStyle = depth;
+      ctx.fillRect(0, 0, W, H);
+    }
+
     drawRays(t);
+
+    // the distant giants drift behind everything else
+    for (const c of deep) if (c.z < 0.45) drawDeep(c, t);
+
     drawManta(t);
     drawJellyfishAll(t);
 
+    for (const c of deep) if (c.z >= 0.45 && c.z < 0.75) drawDeep(c, t);
+
     // fish behind the reef
     for (const f of fish) drawFish(f, t);
+
+    for (const c of deep) if (c.z >= 0.75) drawDeep(c, t);
 
     drawKelp(t);
 
@@ -953,7 +1566,7 @@
     else start();
   });
 
-  // Ripples follow the pointer; clicks make a bigger splash.
+  // Pointer state drives both the ripples and the creatures' reactions.
   let lastX = 0;
   let lastY = 0;
   let travel = 0;
@@ -962,6 +1575,11 @@
   window.addEventListener(
     "pointermove",
     (e) => {
+      pointer.x = e.clientX;
+      pointer.y = e.clientY;
+      pointer.active = true;
+      pointer.at = performance.now();
+
       if (reduce.matches) return;
       const now = performance.now();
       travel += Math.hypot(e.clientX - lastX, e.clientY - lastY);
@@ -980,14 +1598,49 @@
   window.addEventListener(
     "pointerdown",
     (e) => {
+      pointer.x = e.clientX;
+      pointer.y = e.clientY;
+      pointer.active = true;
+      pointer.at = performance.now();
+
       if (reduce.matches) return;
       if (e.pointerType === "mouse" && e.button !== 0) return;
+
       addRipple(e.clientX, e.clientY, 1.7);
+
+      // Nearby residents get a fright.
+      for (const f of fish) {
+        const dx = f.x - e.clientX;
+        const dy = f.y - e.clientY;
+        const d = Math.hypot(dx, dy);
+        if (d < 230 && d > 1) {
+          f.vx += (dx / d) * 150;
+          f.vy += (dy / d) * 150;
+        }
+      }
+
+      for (const c of deep) {
+        const d = Math.hypot(c.x - e.clientX, c.y - e.clientY);
+        if (d < 150 + c.size * 0.8) {
+          c.startle = 1.8;
+          addRipple(c.x, c.y, 0.8);
+        }
+      }
+
       lastRipple = performance.now();
       travel = 0;
     },
     { passive: true }
   );
+
+  document.documentElement.addEventListener("pointerleave", () => {
+    pointer.active = false;
+  });
+  window.addEventListener("blur", () => {
+    pointer.active = false;
+  });
+
+  window.addEventListener("scroll", measureScroll, { passive: true });
 
   let resizeTimer = 0;
   window.addEventListener("resize", () => {
@@ -1011,4 +1664,6 @@
   resize();
   renderStatic();
   start();
+  setTimeout(measureScroll, 500);
+  window.addEventListener("load", () => setTimeout(measureScroll, 250));
 })();
