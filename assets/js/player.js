@@ -3,8 +3,9 @@
    Lives in the navbar as a compact pill and expands into a small panel only
    while it is being used. Volume, mute and on/off state persist between
    visits; OS media controls work through the Media Session API.
-   Autoplay is attempted politely — if the browser blocks it, the player
-   simply waits for the play button.
+   Music starts by default. Browsers usually block sound until the visitor
+   interacts, so a blocked autoplay quietly retries on the first click, tap
+   or keypress anywhere outside the player.
    ========================================================================== */
 
 (() => {
@@ -43,6 +44,8 @@
   let seeking = false;
   let idleTimer = 0;
   let closeTimer = 0;
+  let wantsMusic = false;
+  let unlockArmed = false;
 
   // ----- initial state -------------------------------------------------
   const storedVol = parseFloat(read("volume", "0.35"));
@@ -153,6 +156,7 @@
   // ----- transport ------------------------------------------------------
   async function play() {
     if (audio.error) return;
+    wantsMusic = true;
     player.classList.add("is-loading");
     toggle.title = "";
 
@@ -163,17 +167,49 @@
       armIdle();
     } catch (err) {
       player.classList.remove("is-loading");
-      // A blocked autoplay attempt is not a user pause.
-      if (err && err.name !== "NotAllowedError") write("on", "0");
+      // A blocked autoplay attempt is not a user pause. Retry as soon as
+      // there is a real gesture the browser will accept.
+      if (err && err.name === "NotAllowedError") {
+        armUnlock();
+      } else if (err) {
+        write("on", "0");
+      }
       sync();
       toggle.title = "Press play to start the music";
     }
   }
 
   function pause() {
+    wantsMusic = false;
     audio.pause();
     write("on", "0");
     sync();
+  }
+
+  // Browser autoplay policies require a gesture before audible playback.
+  // Start on the first one anywhere outside the player controls.
+  function armUnlock() {
+    if (unlockArmed) return;
+    unlockArmed = true;
+
+    const events = ["pointerdown", "keydown", "touchend"];
+    const cleanup = () => {
+      unlockArmed = false;
+      for (const ev of events) document.removeEventListener(ev, onGesture, true);
+    };
+
+    function onGesture(e) {
+      if (!wantsMusic || !audio.paused) {
+        cleanup();
+        return;
+      }
+      // The player's own buttons already know what to do.
+      if (e.target instanceof Node && player.contains(e.target)) return;
+      cleanup();
+      play();
+    }
+
+    for (const ev of events) document.addEventListener(ev, onGesture, true);
   }
 
   toggle.addEventListener("click", () => {
@@ -259,7 +295,10 @@
   sync();
 
   if (enabled) {
-    // Autoplay may be blocked; that is handled quietly above.
+    wantsMusic = true;
+    // Autoplay may be blocked; armUnlock() takes over from there.
     play();
+  } else {
+    wantsMusic = false;
   }
 })();

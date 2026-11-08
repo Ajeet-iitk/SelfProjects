@@ -25,11 +25,15 @@ The background is a single canvas that renders the whole reef:
   toward you. Clicking startles anything nearby.
 - **Two palettes:** the day/night toggle now switches between a sunlit shallow reef and a
   deep, bioluminescent sea. Scrolling down deepens the water in both.
+- **A floating interface** — headings, copy, buttons, stats, chips, tiles and project cards
+  bob gently in the current and lean away from the pointer, so the whole page feels
+  suspended in water.
 - **A fish favicon** (`assets/favicon.svg`, plus a 180 px Apple touch icon) in the same
   glowing deep-teal style.
 
 The scene pauses when the tab is hidden and draws a single static frame when the visitor
-prefers reduced motion (ripples and pointer reactions are disabled in that case).
+prefers reduced motion (ripples, pointer reactions and the floating interface are disabled
+in that case).
 
 ## Background music
 
@@ -37,6 +41,10 @@ The player lives in the navbar as a compact pill and stays collapsed until you u
 focus or click the note button to open a small panel with play/pause, mute, seek and volume.
 It closes on Escape, on an outside click, or after a few seconds idle. Volume, mute and
 on/off state persist between visits, and the track is `assets/audio/tu-mil-jaaye-king.mp3`.
+
+Music is on by default. Browsers block audible autoplay before the first interaction, so if
+the initial attempt is refused the player starts automatically on your first click, tap or
+keypress anywhere outside the player controls.
 
 ---
 
@@ -56,6 +64,7 @@ portfolio/
 │       ├── app.js              rendering, GitHub API, filters, lightbox
 │       ├── background.js       underwater canvas scene, creatures + ripples
 │       ├── player.js           navbar music player
+│       ├── float.js            floating interface (bob + pointer reactions)
 │       └── theme.js            reef / deep-sea theme toggle
 ├── thumbnails/                 ← drop screenshots here
 │   └── README.md               naming rules
@@ -213,5 +222,6 @@ Colours, spacing and type live in `:root` at the top of `assets/css/style.css`:
 Card accents cycle through `ACCENTS` in `assets/js/app.js`. The reef palettes (fish, coral,
 wreck, ripples, deep-sea creatures) live in `PALETTES` at the top of
 `assets/js/background.js`. The scroll depths at which each deep-sea species appears are set in
-`DEEP_SPAWN_AT`, just below `makeBubble`. The hero copy and the "How this shelf works" section
-are plain HTML in `index.html`.
+`DEEP_SPAWN_AT`, just below `makeBubble`. The floating interface is tuned with `GROUPS`
+(amplitude, rotation, pointer push and radius) at the top of `assets/js/float.js`. The hero
+copy and the "How this shelf works" section are plain HTML in `index.html`.
