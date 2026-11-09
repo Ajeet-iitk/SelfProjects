@@ -955,11 +955,22 @@
     ctx.restore();
   }
 
+  const FLASH_RGB = { whale: "90, 220, 255", shark: "190, 130, 255", turtle: "110, 255, 214", angler: "255, 120, 220" };
+
   function drawDeep(c, t) {
     if (c.type === "whale") drawWhale(c, t);
     else if (c.type === "shark") drawShark(c, t);
     else if (c.type === "turtle") drawTurtle(c, t);
     else drawAngler(c, t);
+
+    // A well-fed creature lights up for a moment.
+    if (c.flash > 0) {
+      ctx.save();
+      ctx.translate(c.x, c.y);
+      ctx.globalAlpha = Math.min(1, c.flash);
+      for (let i = 0; i < 3; i += 1) bioAura(c.size * 1.3, c.size * 0.75, FLASH_RGB[c.type] || FLASH_RGB.whale, t, 0);
+      ctx.restore();
+    }
   }
 
   function drawWhale(c, t) {
@@ -1592,6 +1603,8 @@
       const dist = Math.hypot(dxp, dyp);
 
       c.startle = Math.max(0, c.startle - dt);
+      c.flash = Math.max(0, (c.flash || 0) - dt);
+      if (!c.leaving && chaseTreat(c, dt)) continue;
 
       if (c.leaving) {
         c.dir = c.x < W * 0.5 ? -1 : 1;
@@ -1675,7 +1688,17 @@
   }
 
   function chaseFood(f, dt) {
-    if (!food.length) return false;
+    // Hooked fish stay on the line, wriggling.
+    if (rod && rod.state === "bite" && rod.fish === f) {
+      const k = Math.min(1, dt * 8);
+      f.x += (rod.x - f.x) * k;
+      f.y += (rod.y + 4 - f.y) * k;
+      f.baseY = f.y;
+      return true;
+    }
+
+    const hookLive = rod && rod.state === "cast";
+    if (!food.length && !hookLive) return false;
     let best = null;
     let bestD = 420 + f.size * 6;
     for (const p of food) {
@@ -1685,9 +1708,24 @@
         best = p;
       }
     }
+    if (hookLive) {
+      const d = Math.hypot(rod.x - f.x, rod.y - f.y);
+      if (d < bestD) {
+        bestD = d;
+        best = rod;
+      }
+    }
     if (!best) return false;
 
-    if (bestD < f.size * 0.7 + 5) {
+    if (best === rod && bestD < f.size * 0.7 + 8) {
+      rod.state = "bite";
+      rod.fish = f;
+      rod.biteAge = 0;
+      emitMarine("Bite! Click now to reel it in.");
+      return true;
+    }
+
+    if (best !== rod && bestD < f.size * 0.7 + 5) {
       best.taken = true;
       addRipple(best.x, best.y, 0.45);
       return true;
@@ -1718,10 +1756,223 @@
     ctx.restore();
   }
 
+  /* ------------------------------------------------------------------ */
+  /* Marine Watch game: catch fish with a rod, feed the deep with them    */
+  /* ------------------------------------------------------------------ */
+
+  const marine = (window.Marine = { tool: "rod", caught: 0, fed: 0 });
+  let rod = null; // { x, y, state: "cast" | "bite", age, biteAge, fish }
+  let treats = [];
+
+  const watching = () => document.body.classList.contains("is-watching");
+
+  function emitMarine(msg) {
+    document.dispatchEvent(new CustomEvent("marine:update", { detail: { msg: msg || "" } }));
+  }
+
+  function castRod(x, y) {
+    rod = { x, y, state: "cast", age: 0, biteAge: 0, fish: null };
+    addRipple(x, y, 1);
+    emitMarine("Line cast. Wait for a fish to bite.");
+  }
+
+  function reelIn() {
+    if (!rod) return;
+    const hooked = rod.state === "bite" && rod.fish;
+    const spot = { x: rod.x, y: rod.y };
+    if (hooked) {
+      const f = rod.fish;
+      const idx = fish.indexOf(f);
+      if (idx >= 0) fish.splice(idx, 1);
+      marine.caught += 1;
+      addRipple(spot.x, spot.y, 1.6);
+      // A new fish swims in from off-screen a few seconds later.
+      setTimeout(() => {
+        f.x = f.dir > 0 ? -90 : W + 90;
+        f.y = rand(H * 0.1, H * 0.85);
+        f.baseY = f.y;
+        f.vx = f.vy = 0;
+        fish.push(f);
+      }, 6000);
+      emitMarine("Caught one! Pick Feed catch, then scroll down to the deep sea.");
+    } else {
+      emitMarine("Reeled in. Nothing yet.");
+    }
+    rod = null;
+  }
+
+  function updateRod(dt) {
+    if (!rod) return;
+    rod.age += dt;
+    if (rod.state === "cast") {
+      if (rod.y < H * 0.72) rod.y += 6 * dt;
+      if (rod.age > 30) rod = null;
+    } else {
+      rod.biteAge += dt;
+      if (rod.biteAge > 2.8) {
+        const f = rod.fish;
+        if (f) f.vx = f.dir * -120;
+        rod = null;
+        emitMarine("It got away! Cast again.");
+      }
+    }
+  }
+
+  function drawRod(t) {
+    if (!rod) return;
+    const jig = rod.state === "bite" ? Math.sin(t * 38) * 2.2 : Math.sin(t * 2) * 0.6;
+    const hx = rod.x + jig * 0.4;
+    const hy = rod.y + jig;
+    const tipX = W * 0.5 + (rod.x - W * 0.5) * 0.18;
+
+    ctx.save();
+    ctx.strokeStyle = theme === "dark" ? "rgba(220, 245, 255, 0.55)" : "rgba(20, 90, 110, 0.6)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(tipX, -8);
+    ctx.quadraticCurveTo((tipX + hx) / 2 + 18, hy * 0.45, hx, hy - 6);
+    ctx.stroke();
+
+    // bait + hook
+    ctx.fillStyle = "#ffb86b";
+    ctx.beginPath();
+    ctx.arc(hx, hy, 3.4, 0, TAU);
+    ctx.fill();
+    ctx.strokeStyle = "#e8f6ff";
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.arc(hx, hy + 5, 3, 0.2, Math.PI * 1.2);
+    ctx.stroke();
+
+    if (rod.state === "bite") {
+      ctx.fillStyle = "#58f5c8";
+      ctx.font = "700 20px sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText("!", hx, hy - 16);
+    }
+    ctx.restore();
+  }
+
+  function dropTreat(x, y) {
+    if (marine.caught < 1) {
+      emitMarine("Catch a fish with the rod first.");
+      return;
+    }
+    marine.caught -= 1;
+    treats.push({ x, y, vy: 28, age: 0, taken: false, phase: rand(0, TAU) });
+    emitMarine("Treat dropped. Deep creatures nearby will come for it.");
+  }
+
+  function updateTreats(dt) {
+    for (let i = treats.length - 1; i >= 0; i -= 1) {
+      const p = treats[i];
+      p.age += dt;
+      if (p.y < H * 0.74) p.y += p.vy * dt;
+      if (p.taken || p.age > 40) treats.splice(i, 1);
+    }
+  }
+
+  const FED_MSG = {
+    whale: "The whale is delighted!",
+    shark: "The shark gulped it down!",
+    turtle: "The turtle nibbles happily.",
+    angler: "The anglerfish glows with joy!",
+  };
+
+  function chaseTreat(c, dt) {
+    if (!treats.length) return false;
+    let best = null;
+    let bestD = 1e9;
+    for (const p of treats) {
+      const d = Math.hypot(p.x - c.x, p.y - c.y);
+      if (d < bestD) {
+        bestD = d;
+        best = p;
+      }
+    }
+    if (!best || bestD > 1100) return false;
+
+    if (bestD < c.size * 0.35 + 12) {
+      best.taken = true;
+      c.flash = 2.4;
+      marine.fed += 1;
+      addRipple(best.x, best.y, 1.4);
+      emitMarine(FED_MSG[c.type] || "Yum!");
+      return true;
+    }
+
+    const dx = best.x - c.x;
+    const dy = best.y - c.y;
+    if (Math.abs(dx) > 10) c.dir = dx > 0 ? 1 : -1;
+    c.entering = false;
+    const sp = c.speed * 2.6 + 26;
+    c.x += (dx / bestD) * sp * dt;
+    c.y += (dy / bestD) * sp * dt;
+    c.baseY = c.y;
+    return true;
+  }
+
+  function drawTreats(t) {
+    if (!treats.length) return;
+    const sp = glowSprite("255, 170, 90");
+    ctx.save();
+    for (const p of treats) {
+      const bob = Math.sin(t * 2 + p.phase) * 2;
+      ctx.globalCompositeOperation = "lighter";
+      ctx.globalAlpha = 0.6;
+      ctx.drawImage(sp, p.x - 22, p.y + bob - 22, 44, 44);
+      ctx.globalCompositeOperation = "source-over";
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = "#ffb86b";
+      ctx.beginPath();
+      ctx.ellipse(p.x, p.y + bob, 9, 4.6, 0, 0, TAU);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(p.x - 8, p.y + bob);
+      ctx.lineTo(p.x - 15, p.y + bob - 5);
+      ctx.lineTo(p.x - 15, p.y + bob + 5);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  function handleWatchClick(x, y) {
+    if (marine.tool === "rod") {
+      if (rod) reelIn();
+      else castRod(x, y);
+    } else if (marine.tool === "feed") {
+      dropTreat(x, y);
+    } else {
+      dropFood(x, y);
+    }
+  }
+
+  document.addEventListener("marine:tool", (e) => {
+    marine.tool = e.detail;
+    if (marine.tool !== "rod" && rod) rod = null;
+    emitMarine(
+      marine.tool === "rod"
+        ? "Click the water to cast your line."
+        : marine.tool === "feed"
+        ? marine.caught
+          ? "Click to drop a fish. Scroll down for sharks and whales."
+          : "Catch a fish with the rod first."
+        : "Click the water to scatter fish food."
+    );
+  });
+
+  // Leaving Marine Watch reels the line in.
+  new MutationObserver(() => {
+    if (!watching() && rod) rod = null;
+  }).observe(document.body, { attributes: true, attributeFilter: ["class"] });
+
   function update(dt, t) {
     const on = pointerIsOn();
 
     updateFood(dt, t);
+    updateRod(dt);
+    updateTreats(dt);
 
     for (const f of fish) {
       if (chaseFood(f, dt)) continue;
@@ -1904,6 +2155,8 @@
     // fish behind the reef
     for (const f of fish) drawFish(f, t);
     drawFood();
+    drawRod(t);
+    drawTreats(t);
 
     for (const c of deep) if (c.z >= 0.75) drawDeep(c, t);
 
@@ -2043,6 +2296,13 @@
       // Clicking open water feeds the fish; clicking UI still startles them.
       const tg = e.target;
       const onUi = tg && tg.closest && tg.closest("a, button, input, select, textarea, label, .card, .note, .stat, .cta__box, .player, .lightbox, .topbar");
+      if (watching()) {
+        if (!onUi && !(tg.closest && tg.closest(".watch-hud, .watch-exit"))) handleWatchClick(e.clientX, e.clientY);
+        lastRipple = performance.now();
+        travel = 0;
+        return;
+      }
+
       if (!onUi) {
         dropFood(e.clientX, e.clientY);
         lastRipple = performance.now();

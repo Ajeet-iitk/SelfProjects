@@ -2591,3 +2591,77 @@ body.is-watching .watch-exit:focus-visible {
 @media (max-width: 900px) and (min-width: 480px) {
   .depth__read { display: grid; position: absolute; right: 18px; top: -34px; max-width: 120px; }
 }
+
+/* ---------- marine watch: fishing HUD ---------- */
+.watch-hud {
+  position: fixed;
+  left: 50%;
+  bottom: 66px;
+  z-index: 97;
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+  transform: translate(-50%, 12px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.8s ease 0.6s, transform 0.8s ease 0.6s;
+}
+
+body.is-watching .watch-hud {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translate(-50%, 0);
+}
+
+.watch-hud__tools {
+  display: inline-flex;
+  gap: 6px;
+  padding: 5px;
+  border-radius: 999px;
+  border: 1px solid rgba(88, 245, 200, 0.35);
+  background: rgba(4, 18, 26, 0.6);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+
+.watch-hud__tools button {
+  padding: 7px 13px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: #bfeedd;
+  font: 500 0.75rem var(--font-mono);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.watch-hud__tools button.is-active {
+  background: rgba(88, 245, 200, 0.2);
+  color: #58f5c8;
+}
+
+.watch-hud__tools b {
+  margin-left: 4px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: rgba(255, 184, 107, 0.25);
+  color: #ffb86b;
+  font-weight: 600;
+}
+
+.watch-hud__msg {
+  min-height: 1.1em;
+  margin: 0;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(4, 18, 26, 0.45);
+  color: #d9fff2;
+  font: 0.72rem var(--font-mono);
+  text-align: center;
+}
+
+.watch-hud__msg:empty { display: none; }
+
+@media (max-width: 520px) {
+  .watch-hud__tools button { padding: 7px 9px; font-size: 0.68rem; }
+}
