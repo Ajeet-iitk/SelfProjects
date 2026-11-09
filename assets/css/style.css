@@ -2441,7 +2441,6 @@ main,
 .footer,
 .brand,
 .nav > a,
-.nav > .theme-toggle,
 .nav > .watch-btn {
   transition: opacity 1.1s ease;
 }
@@ -2454,7 +2453,6 @@ body.is-watching main,
 body.is-watching .footer,
 body.is-watching .brand,
 body.is-watching .nav > a,
-body.is-watching .nav > .theme-toggle,
 body.is-watching .nav > .watch-btn {
   opacity: 0;
   pointer-events: none;

@@ -140,6 +140,7 @@
   let deep = [];
   let deepTimer = 1;
   let food = [];
+  let watchLight = 1; // 1 = full daylight, falls toward 0 as Marine Watch dives
   let scrollProgress = 0;
 
   const pointer = { x: -9999, y: -9999, active: false, at: 0 };
@@ -1971,6 +1972,8 @@
     const on = pointerIsOn();
 
     updateFood(dt, t);
+    const lightTarget = watching() ? 1 - scrollProgress * 0.94 : 1;
+    watchLight += (lightTarget - watchLight) * Math.min(1, dt * 2.2);
     updateRod(dt);
     updateTreats(dt);
 
@@ -2141,8 +2144,22 @@
       ctx.fillRect(0, 0, W, H);
     }
 
+    ctx.save();
+    ctx.globalAlpha = Math.max(0.06, watchLight * watchLight);
     drawRays(t);
     drawCaustics(t);
+    ctx.restore();
+
+    // Marine Watch night: less light the deeper you scroll. Drawn before the
+    // creatures so their bioluminescence stands out against it.
+    if (watchLight < 0.995) {
+      const dark = 1 - watchLight;
+      const night = ctx.createLinearGradient(0, 0, 0, H);
+      night.addColorStop(0, `rgba(2, 8, 22, ${0.62 * dark})`);
+      night.addColorStop(1, `rgba(0, 2, 10, ${0.82 * dark})`);
+      ctx.fillStyle = night;
+      ctx.fillRect(0, 0, W, H);
+    }
 
     // the distant giants drift behind everything else
     for (const c of deep) if (c.z < 0.45) drawDeep(c, t);
