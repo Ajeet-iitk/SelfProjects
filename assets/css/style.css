@@ -2787,3 +2787,44 @@ html, body { overflow-x: clip; }
   .card.rise, .more__btn.is-diving .more__icon { animation: none; }
   .more__meter span { transition: none; }
 }
+
+/* ---------- marine watch HUD: always fully visible on phones ---------- */
+.watch-hud {
+  bottom: calc(66px + env(safe-area-inset-bottom, 0px));
+}
+
+.watch-exit {
+  bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+}
+
+.lbl-short { display: none; }
+
+@media (max-width: 520px) {
+  .watch-hud {
+    left: 8px;
+    right: 8px;
+    transform: translateY(12px);
+    justify-items: stretch;
+  }
+
+  body.is-watching .watch-hud { transform: none; }
+
+  .watch-hud__tools {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 4px;
+    max-width: none;
+    overflow: visible;
+  }
+
+  .watch-hud__tools button {
+    padding: 9px 6px;
+    font-size: 0.72rem;
+    text-align: center;
+  }
+
+  .lbl-full { display: none; }
+  .lbl-short { display: inline; }
+
+  .watch-hud__msg { justify-self: center; max-width: 100%; }
+}

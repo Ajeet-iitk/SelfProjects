@@ -24,9 +24,9 @@
   hud.className = "watch-hud";
   hud.innerHTML = `
     <div class="watch-hud__tools" role="group" aria-label="Marine Watch tools">
-      <button type="button" data-tool="rod" class="is-active" aria-pressed="true">Fishing rod</button>
-      <button type="button" data-tool="food" aria-pressed="false">Fish food</button>
-      <button type="button" data-tool="feed" aria-pressed="false">Feed catch <b id="hud-caught">0</b></button>
+      <button type="button" data-tool="rod" class="is-active" aria-pressed="true"><span class="lbl-full">Fishing rod</span><span class="lbl-short">Rod</span></button>
+      <button type="button" data-tool="food" aria-pressed="false"><span class="lbl-full">Fish food</span><span class="lbl-short">Food</span></button>
+      <button type="button" data-tool="feed" aria-pressed="false"><span class="lbl-full">Feed catch</span><span class="lbl-short">Feed</span><b id="hud-caught">0</b></button>
     </div>
     <p class="watch-hud__msg" id="hud-msg" aria-live="polite">Click the water to cast your line.</p>`;
   body.appendChild(hud);
