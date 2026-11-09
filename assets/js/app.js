@@ -717,6 +717,21 @@
       return;
     }
 
+    // Preferred: a static snapshot refreshed hourly by a GitHub Action, so
+    // visitors never depend on GitHub's per-IP API rate limit.
+    try {
+      const snap = await fetch("assets/data/repos.json", { cache: "no-cache" });
+      if (snap.ok) {
+        const data = await snap.json();
+        if (Array.isArray(data) && data.length) {
+          mergeRepoList(data);
+          return;
+        }
+      }
+    } catch {
+      /* no snapshot (e.g. file://) — fall back to the live API */
+    }
+
     try {
       const list = [];
       for (let page = 1; page <= MAX_REPO_PAGES; page++) {
