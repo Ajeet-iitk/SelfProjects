@@ -718,22 +718,29 @@
     }
 
     try {
-      const res = await fetch(
-        `https://api.github.com/users/${encodeURIComponent(OWNER)}/repos?per_page=100&sort=updated`,
-        { headers: { Accept: "application/vnd.github+json" } }
-      );
+      const list = [];
+      for (let page = 1; page <= MAX_REPO_PAGES; page++) {
+        const res = await fetch(
+          `https://api.github.com/users/${encodeURIComponent(OWNER)}/repos?per_page=${REPOS_PER_PAGE}&page=${page}&sort=updated`,
+          { headers: { Accept: "application/vnd.github+json" } }
+        );
 
-      if (res.status === 403 || res.status === 429) {
-        apiBlocked = true;
-        return;
+        if (res.status === 403 || res.status === 429) {
+          apiBlocked = true;
+          break;
+        }
+        if (!res.ok) break;
+
+        const chunk = await res.json();
+        if (!Array.isArray(chunk)) break;
+        list.push(...chunk);
+        if (chunk.length < REPOS_PER_PAGE) break;
       }
-      if (!res.ok) return;
 
-      const list = await res.json();
-      if (!Array.isArray(list)) return;
-
-      writeCache("list", list);
-      mergeRepoList(list);
+      if (list.length) {
+        writeCache("list", list);
+        mergeRepoList(list);
+      }
     } catch {
       // Offline or blocked: the curated shelf still renders, and the
       // per-repository cache path can fill in a little detail.
