@@ -53,15 +53,15 @@
       reefLight: "#0d5560",
       reefEdge: "rgba(80, 205, 220, 0.28)",
       wreck: "#051f28",
-      whale: "rgba(2, 13, 19, 0.92)",
-      whaleLine: "rgba(126, 232, 250, 0.34)",
-      shark: "rgba(1, 9, 14, 0.94)",
-      sharkLine: "rgba(140, 236, 250, 0.32)",
-      turtleShell: "rgba(3, 24, 30, 0.95)",
-      turtleSkin: "rgba(6, 36, 42, 0.95)",
-      turtleLine: "rgba(110, 245, 214, 0.5)",
-      angler: "rgba(2, 12, 17, 0.95)",
-      anglerLine: "rgba(130, 236, 246, 0.36)",
+      whale: "rgba(7, 22, 54, 0.93)",
+      whaleLine: "rgba(120, 235, 255, 0.6)",
+      shark: "rgba(20, 12, 50, 0.94)",
+      sharkLine: "rgba(190, 150, 255, 0.55)",
+      turtleShell: "rgba(5, 40, 54, 0.95)",
+      turtleSkin: "rgba(8, 52, 66, 0.95)",
+      turtleLine: "rgba(110, 255, 214, 0.8)",
+      angler: "rgba(32, 10, 46, 0.95)",
+      anglerLine: "rgba(255, 140, 230, 0.55)",
       lure: "rgba(150, 255, 220, 0.95)",
       creatureEye: "rgba(200, 250, 255, 0.85)",
       fish: ["#8fe3f2", "#6cc8e8", "#ffd173", "#ff9d7a", "#a8f0d8", "#c9b6ff"],
@@ -882,6 +882,74 @@
   /* deep-sea visitors: drawing                                          */
   /* ------------------------------------------------------------------ */
 
+  /* ------------------------------------------------------------------ */
+  /* bioluminescence: soft aura, glowing body rim, pulsing light spots    */
+  /* ------------------------------------------------------------------ */
+
+  /** Soft coloured haze behind a creature (local, already-scaled coords). */
+  function bioAura(rx, ry, rgb, t, phase) {
+    const k = theme === "dark" ? 1 : 0.35;
+    const pulse = 0.8 + 0.2 * Math.sin(t * 0.9 + phase);
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    ctx.scale(1, ry / rx);
+    const g = ctx.createRadialGradient(0, 0, rx * 0.1, 0, 0, rx);
+    g.addColorStop(0, `rgba(${rgb}, ${0.2 * k * pulse})`);
+    g.addColorStop(1, `rgba(${rgb}, 0)`);
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(0, 0, rx, 0, TAU);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  /** Makes the next fills/strokes cast a coloured glow (dark theme only). */
+  function bioRim(rgb, blur) {
+    if (theme !== "dark") return;
+    ctx.shadowColor = `rgba(${rgb}, 0.7)`;
+    ctx.shadowBlur = blur;
+  }
+
+  function bioRimOff() {
+    ctx.shadowColor = "transparent";
+    ctx.shadowBlur = 0;
+  }
+
+  /** Glowing dots whose brightness ripples along the body like a wave. */
+  function bioDots(dots, rgb, t, phase, r) {
+    const k = theme === "dark" ? 1 : 0.5;
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    for (let i = 0; i < dots.length; i += 1) {
+      const wave = 0.5 + 0.5 * Math.sin(t * 1.7 - i * 0.55 + phase);
+      const a = (0.25 + 0.75 * wave) * k;
+      const rr = r * (0.75 + 0.5 * wave);
+      ctx.shadowColor = `rgba(${rgb}, ${a})`;
+      ctx.shadowBlur = 10 * k;
+      ctx.fillStyle = `rgba(${rgb}, ${a})`;
+      ctx.beginPath();
+      ctx.arc(dots[i][0], dots[i][1], rr, 0, TAU);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  /** A glowing line following a curve traced by `trace`. */
+  function bioLine(trace, rgb, width, alpha) {
+    const k = theme === "dark" ? 1 : 0.5;
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    ctx.lineCap = "round";
+    ctx.strokeStyle = `rgba(${rgb}, ${alpha * k})`;
+    ctx.shadowColor = `rgba(${rgb}, ${0.8 * k})`;
+    ctx.shadowBlur = 12 * k;
+    ctx.lineWidth = width;
+    ctx.beginPath();
+    trace();
+    ctx.stroke();
+    ctx.restore();
+  }
+
   function drawDeep(c, t) {
     if (c.type === "whale") drawWhale(c, t);
     else if (c.type === "shark") drawShark(c, t);
@@ -899,6 +967,8 @@
     ctx.scale(c.dir * s, s);
     ctx.globalAlpha = theme === "dark" ? 0.9 : 0.72;
 
+    bioAura(170, 80, "80, 210, 255", t, c.phase);
+    bioRim("80, 210, 255", 16);
     ctx.fillStyle = P.whale;
 
     // tail flukes
@@ -972,6 +1042,30 @@
     ctx.moveTo(80, -22);
     ctx.quadraticCurveTo(36, -34, -20, -30);
     ctx.stroke();
+    bioRimOff();
+
+    // glowing markings: a travelling wave of light along flank and back
+    const flank = [];
+    const back = [];
+    for (let i = 0; i < 12; i += 1) {
+      const x = 76 - i * 14;
+      flank.push([x, 4 + Math.sin(i * 0.6) * 3 + i * 0.4]);
+      if (i < 10) back.push([x - 4, -20 - Math.cos(i * 0.28) * 4]);
+    }
+    bioDots(flank, "110, 235, 255", t, c.phase, 1.9);
+    bioDots(back, "150, 190, 255", t, c.phase + 1.2, 1.5);
+    bioLine(() => {
+      ctx.moveTo(80, -22);
+      ctx.quadraticCurveTo(36, -34, -20, -30);
+    }, "120, 235, 255", 1.4, 0.55);
+    bioLine(() => {
+      ctx.moveTo(38, 18);
+      ctx.quadraticCurveTo(30, 44, 6, 56);
+    }, "120, 235, 255", 1.2, 0.5);
+    bioLine(() => {
+      ctx.moveTo(-94, 0);
+      ctx.bezierCurveTo(-108, -10 + fluke * 6, -124, -22 + fluke * 8, -132, -30 + fluke * 8);
+    }, "150, 190, 255", 1.1, 0.5);
 
     ctx.restore();
   }
@@ -985,6 +1079,8 @@
     ctx.scale(c.dir * s, s);
     ctx.globalAlpha = theme === "dark" ? 0.92 : 0.75;
 
+    bioAura(90, 44, "170, 110, 255", t, c.phase);
+    bioRim("170, 110, 255", 12);
     ctx.fillStyle = P.shark;
 
     // tail
@@ -1049,6 +1145,18 @@
     ctx.moveTo(64, 4);
     ctx.quadraticCurveTo(54, 8, 46, 7);
     ctx.stroke();
+    bioRimOff();
+
+    // lateral line of light and glowing fin tips
+    const lat = [];
+    for (let i = 0; i < 11; i += 1) lat.push([40 - i * 7, -2 + Math.sin(i * 0.5) * 1.6]);
+    bioDots(lat, "200, 150, 255", t, c.phase, 1.5);
+    bioDots([[-12, -40], [-60, -17], [8, 24]], "120, 235, 255", t, c.phase, 1.7);
+    bioLine(() => {
+      ctx.moveTo(-2, -18);
+      ctx.lineTo(-12, -46);
+      ctx.lineTo(-28, -16);
+    }, "190, 140, 255", 1.1, 0.5);
 
     ctx.restore();
   }
@@ -1062,6 +1170,9 @@
     ctx.translate(c.x, c.y + bob);
     ctx.scale(c.dir * s, s);
     ctx.globalAlpha = theme === "dark" ? 0.9 : 0.78;
+
+    bioAura(48, 30, "90, 255, 200", t, c.phase);
+    bioRim("90, 255, 200", 10);
 
     // rear flipper
     ctx.save();
@@ -1123,6 +1234,26 @@
     ctx.lineTo(-27, 10);
     ctx.closePath();
     ctx.fill();
+    bioRimOff();
+
+    // glowing shell plates and speckled flippers
+    bioLine(() => {
+      ctx.ellipse(-2, 0, 12, 9, 0, 0, TAU);
+    }, "110, 255, 214", 1.3, 0.7);
+    bioLine(() => {
+      for (let i = 0; i < 5; i += 1) {
+        const a = (i / 5) * TAU + 0.4;
+        ctx.moveTo(-2 + Math.cos(a) * 12, Math.sin(a) * 9);
+        ctx.lineTo(-2 + Math.cos(a) * 26, Math.sin(a) * 18.5);
+      }
+    }, "110, 255, 214", 1, 0.5);
+    const rim = [];
+    for (let i = 0; i < 14; i += 1) {
+      const a = (i / 14) * TAU;
+      rim.push([-2 + Math.cos(a) * 27, Math.sin(a) * 19]);
+    }
+    bioDots(rim, "130, 255, 230", t, c.phase, 1.2);
+    bioDots([[16, 18], [18, 26], [14, 32], [28, -3], [-19, 14]], "255, 150, 230", t, c.phase + 2, 1.3);
 
     ctx.restore();
   }
@@ -1150,6 +1281,9 @@
     ctx.translate(c.x, c.y + bob);
     ctx.scale(c.dir * s, s);
     ctx.globalAlpha = theme === "dark" ? 0.95 : 0.8;
+
+    bioAura(54, 40, "255, 110, 220", t, c.phase);
+    bioRim("255, 110, 220", 10);
 
     // tail
     ctx.fillStyle = P.angler;
@@ -1211,6 +1345,9 @@
     ctx.moveTo(8, -18);
     ctx.quadraticCurveTo(6, -34, 18 + reachX, -36 + reachY);
     ctx.stroke();
+
+    bioRimOff();
+    bioDots([[16, -6], [8, 2], [0, 6], [-8, 8], [-14, 2], [-4, -12], [-16, -6]], "255, 150, 230", t, c.phase, 1.1);
 
     // glowing bulb
     ctx.save();
