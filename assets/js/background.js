@@ -2297,9 +2297,7 @@
     { passive: true }
   );
 
-  window.addEventListener(
-    "pointerdown",
-    (e) => {
+  const onPress = (e) => {
       pointer.x = e.clientX;
       pointer.y = e.clientY;
       pointer.active = true;
@@ -2348,9 +2346,40 @@
 
       lastRipple = performance.now();
       travel = 0;
+  };
+
+  // Mouse and pen act on press. A finger might be starting a scroll, so a
+  // touch only counts as a tap when it lifts without the browser taking
+  // the gesture over (which fires pointercancel).
+  let tapStart = null;
+
+  window.addEventListener(
+    "pointerdown",
+    (e) => {
+      if (e.pointerType === "touch") {
+        tapStart = { x: e.clientX, y: e.clientY, target: e.target, at: performance.now() };
+        return;
+      }
+      onPress(e);
     },
     { passive: true }
   );
+
+  window.addEventListener(
+    "pointerup",
+    (e) => {
+      if (e.pointerType !== "touch" || !tapStart) return;
+      const s0 = tapStart;
+      tapStart = null;
+      if (Math.hypot(e.clientX - s0.x, e.clientY - s0.y) > 12 || performance.now() - s0.at > 500) return;
+      onPress({ clientX: e.clientX, clientY: e.clientY, target: s0.target, pointerType: "mouse", button: 0 });
+    },
+    { passive: true }
+  );
+
+  window.addEventListener("pointercancel", () => {
+    tapStart = null;
+  });
 
   // The music player drops a ripple into the water as it plays.
   document.addEventListener("bgm:pulse", (e) => {
