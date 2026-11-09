@@ -2828,3 +2828,15 @@ html, body { overflow-x: clip; }
 
   .watch-hud__msg { justify-self: center; max-width: 100%; }
 }
+
+/* Marine Watch: faded nav items leave the layout so the theme switch and the
+   music player sit together instead of being spread apart by invisible links. */
+body.is-watching .nav > a,
+body.is-watching .nav > .watch-btn {
+  position: absolute;
+  visibility: hidden;
+}
+
+body.is-watching .nav {
+  gap: 12px;
+}
