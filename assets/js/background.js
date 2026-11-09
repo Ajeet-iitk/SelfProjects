@@ -1933,6 +1933,12 @@
     { passive: true }
   );
 
+  // The music player drops a ripple into the water as it plays.
+  document.addEventListener("bgm:pulse", (e) => {
+    if (reduce.matches || !e.detail) return;
+    addRipple(e.detail.x, e.detail.y, 1.2);
+  });
+
   document.documentElement.addEventListener("pointerleave", () => {
     pointer.active = false;
   });

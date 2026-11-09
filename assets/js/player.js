@@ -289,6 +289,40 @@
     }
   }
 
+  // ----- water ripples that follow the music -------------------------
+  // While playing, a soft ring spreads from the player every couple of
+  // seconds, and the ocean background gets a matching ripple.
+  const noMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+  const ripples = document.createElement("div");
+  ripples.className = "player__ripples";
+  ripples.setAttribute("aria-hidden", "true");
+  player.appendChild(ripples);
+
+  let pulseTimer = 0;
+
+  function pulse() {
+    if (audio.paused || audio.muted || audio.volume === 0 || document.hidden || noMotion.matches) return;
+    const ring = document.createElement("span");
+    ring.className = "player__ring";
+    ripples.appendChild(ring);
+    setTimeout(() => ring.remove(), 2700);
+
+    const r = toggle.getBoundingClientRect();
+    document.dispatchEvent(
+      new CustomEvent("bgm:pulse", { detail: { x: r.left + r.width / 2, y: r.top + r.height / 2 } })
+    );
+  }
+
+  function schedulePulse() {
+    clearTimeout(pulseTimer);
+    // a gentle, slightly uneven rhythm so it feels like water, not a metronome
+    pulseTimer = setTimeout(() => {
+      pulse();
+      schedulePulse();
+    }, 1500 + Math.random() * 500);
+  }
+  schedulePulse();
+
   // ----- boot -----------------------------------------------------------
   paintVolume();
   paintProgress();
