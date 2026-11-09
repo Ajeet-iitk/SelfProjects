@@ -24,7 +24,9 @@
   const THUMB_DIR = (CFG.thumbDir || "thumbnails").replace(/\/+$/, "");
   const CACHE_HOURS = Number(CFG.cacheHours) || 12;
   const CACHE_PREFIX = "hobby-arcade:repo:v1:";
-  const MAX_DISCOVERED = Number(CFG.maxAutoProjects) || 60;
+  const MAX_DISCOVERED = Number(CFG.maxAutoProjects) || 300;
+  const REPOS_PER_PAGE = 100;
+  const MAX_REPO_PAGES = 5; // up to 500 public repositories
 
   /* Repositories the visitor (or the owner) does not want auto-added. */
   const EXCLUDE = new Set(
