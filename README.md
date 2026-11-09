@@ -21,10 +21,6 @@ The background is a single canvas that renders the whole reef:
 - **Deep-sea visitors** that join as you scroll: a turtle, then sharks, a whale and glowing
   anglerfish. Each species enters at its own scroll depth, and going back up lets them swim
   away again.
-- **Clinging octopuses** — a handful of pseudo-3D octopuses hold on to headings and project
-  cards. Their tentacles curl over the edge of the card, their eyes follow the pointer, and
-  their colour is mixed from the card's accent plus the current theme, so they camouflage
-  into whatever they are holding.
 - **Cursor ripples** — moving the pointer leaves expanding rings, and clicking makes a
   bigger splash with a small burst of bubbles.
 - **Creatures that notice the pointer** — small fish scatter, sharks turn and trail your
@@ -39,8 +35,8 @@ The background is a single canvas that renders the whole reef:
   glowing deep-teal style.
 
 The scene pauses when the tab is hidden and draws a single static frame when the visitor
-prefers reduced motion (ripples, pointer reactions, octopus animation and the floating
-interface are disabled in that case).
+prefers reduced motion (ripples, pointer reactions and the floating interface are disabled
+in that case).
 
 ## Background music
 
@@ -72,7 +68,6 @@ portfolio/
 │       ├── background.js       underwater canvas scene, creatures + ripples
 │       ├── player.js           navbar music player
 │       ├── float.js            floating interface (bob + pointer reactions)
-│       ├── octopus.js          clinging, colour-shifting octopus overlay
 │       └── theme.js            reef / deep-sea theme toggle
 ├── thumbnails/                 ← drop screenshots here
 │   └── README.md               naming rules
@@ -269,7 +264,5 @@ Card accents cycle through `ACCENTS` in `assets/js/app.js`. The reef palettes (f
 wreck, ripples, deep-sea creatures, plankton, anemones) live in `PALETTES` at the top of
 `assets/js/background.js`. The scroll depths at which each deep-sea species appears are set in
 `DEEP_SPAWN_AT`, just below `makeBubble`. The floating interface is tuned with `GROUPS`
-(amplitude, rotation, pointer push and radius) at the top of `assets/js/float.js`. The
-octopuses are tuned with `SELECTORS`, `CARD_CFG`, `maxOctos()` and `cardSlots()` in
-`assets/js/octopus.js`. The hero copy and the "How this shelf works" section are plain HTML in
-`index.html`.
+(amplitude, rotation, pointer push and radius) at the top of `assets/js/float.js`. The hero
+copy and the "How this shelf works" section are plain HTML in `index.html`.
