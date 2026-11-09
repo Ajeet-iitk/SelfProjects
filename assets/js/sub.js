@@ -13,6 +13,7 @@
   let canvas = null;
   let ctx = null;
   let toast = null;
+  let exitBtn = null;
   let raf = 0;
   let active = false;
   let W = 0;
@@ -161,8 +162,16 @@
 
     toast = document.createElement("div");
     toast.className = "sub-toast";
-    toast.textContent = "Submarine mode — press S or Esc to surface";
+    toast.textContent = window.matchMedia("(hover: none)").matches
+      ? "Submarine mode — drag your finger to steer"
+      : "Submarine mode — press S or Esc to surface";
     document.body.appendChild(toast);
+    exitBtn = document.createElement("button");
+    exitBtn.type = "button";
+    exitBtn.className = "sub-exit";
+    exitBtn.textContent = "Surface";
+    exitBtn.addEventListener("click", surface);
+    document.body.appendChild(exitBtn);
     setTimeout(() => toast && toast.remove(), 3700);
 
     last = 0;
@@ -176,7 +185,8 @@
     window.removeEventListener("resize", resize);
     if (canvas) canvas.remove();
     if (toast) toast.remove();
-    canvas = ctx = toast = null;
+    if (exitBtn) exitBtn.remove();
+    canvas = ctx = toast = exitBtn = null;
   }
 
   window.addEventListener(
@@ -187,6 +197,20 @@
     },
     { passive: true }
   );
+
+  // Touch drags keep firing touchmove even while the page scrolls.
+  const touchPoint = (e) => {
+    const t = e.touches && e.touches[0];
+    if (t) {
+      ptr.x = t.clientX;
+      ptr.y = t.clientY;
+    }
+  };
+  window.addEventListener("touchstart", touchPoint, { passive: true });
+  window.addEventListener("touchmove", touchPoint, { passive: true });
+
+  const toggleBtn = document.getElementById("sub-toggle");
+  if (toggleBtn) toggleBtn.addEventListener("click", () => (active ? surface() : dive()));
 
   document.addEventListener("keydown", (e) => {
     if (e.ctrlKey || e.metaKey || e.altKey) return;

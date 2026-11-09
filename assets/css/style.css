@@ -1418,7 +1418,8 @@ code {
   gap: 10px;
 }
 
-.footer__social a {
+.footer__social a,
+.footer__social button {
   display: grid;
   place-items: center;
   width: 36px;
@@ -1429,8 +1430,16 @@ code {
   transition: color 0.2s, border-color 0.2s, transform 0.2s;
 }
 
+.footer__social button {
+  background: none;
+  cursor: pointer;
+  padding: 0;
+}
+
 .footer__social a:hover,
-.footer__social a:focus-visible {
+.footer__social a:focus-visible,
+.footer__social button:hover,
+.footer__social button:focus-visible {
   color: var(--mint);
   border-color: var(--mint);
   transform: translateY(-2px);
@@ -2344,4 +2353,29 @@ code {
 @media (prefers-reduced-motion: reduce) {
   .sonar { display: none; }
   .card.is-pinged { animation: none; }
+}
+
+.sub-exit {
+  position: fixed;
+  right: 14px;
+  bottom: 14px;
+  z-index: 96;
+  padding: 10px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--mint);
+  background: rgba(4, 18, 26, 0.92);
+  color: var(--mint);
+  font: 600 0.8rem var(--font-mono);
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+@media (hover: none) {
+  .search kbd { display: none; }
+}
+
+@media (max-width: 640px) {
+  .sub-toast { width: max-content; max-width: calc(100vw - 32px); text-align: center; white-space: normal; }
+  .footer__social a,
+  .footer__social button { width: 44px; height: 44px; }
 }
