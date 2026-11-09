@@ -853,9 +853,13 @@
         (state.filter.startsWith("type:") && p.type === state.filter.slice(5)) ||
         (state.filter.startsWith("tag:") && p.tags.includes(state.filter.slice(4)));
 
-      const show = matchesQuery && matchesFilter;
-      p.card.el.hidden = !show;
-      if (show) visible += 1;
+      // Type/tag filters hide cards; the text query only "pings" them, so
+      // matches glow and everything else dims (see sonar styles).
+      p.card.el.hidden = !matchesFilter;
+      const hit = matchesFilter && matchesQuery;
+      p.card.el.classList.toggle("is-hit", hit && terms.length > 0);
+      p.card.el.classList.toggle("is-dim", matchesFilter && !matchesQuery);
+      if (hit) visible += 1;
     }
 
     const total = state.projects.length;
@@ -960,6 +964,36 @@
     }
   }
 
+  /* ------------------------------------------------------------------ */
+  /* sonar ping                                                          */
+  /* ------------------------------------------------------------------ */
+
+  function sonarPing() {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const box = dom.search.getBoundingClientRect();
+    const ox = box.left + box.width / 2;
+    const oy = box.top + box.height / 2;
+
+    const ring = document.createElement("div");
+    ring.className = "sonar";
+    ring.setAttribute("aria-hidden", "true");
+    ring.style.left = `${ox}px`;
+    ring.style.top = `${oy}px`;
+    document.body.appendChild(ring);
+    setTimeout(() => ring.remove(), 1700);
+
+    // Cards light up as the ring reaches them.
+    for (const p of state.projects) {
+      if (!p.card || !p.card.el.classList.contains("is-hit")) continue;
+      const r = p.card.el.getBoundingClientRect();
+      const d = Math.hypot(r.left + r.width / 2 - ox, r.top + r.height / 2 - oy);
+      p.card.el.style.setProperty("--ping-delay", `${Math.min(1.2, d / 1100).toFixed(2)}s`);
+      p.card.el.classList.remove("is-pinged");
+      void p.card.el.offsetWidth;
+      p.card.el.classList.add("is-pinged");
+    }
+  }
+
   function bindEvents() {
     let debounce;
     dom.search.addEventListener("input", () => {
@@ -967,6 +1001,7 @@
       debounce = setTimeout(() => {
         state.q = dom.search.value;
         applyFilters();
+        if (state.q.trim()) sonarPing();
       }, 90);
     });
 
@@ -1016,6 +1051,7 @@
       if (e.key === "/" && !/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName)) {
         e.preventDefault();
         dom.search.focus();
+        sonarPing();
       }
     });
 

@@ -139,6 +139,7 @@
 
   let deep = [];
   let deepTimer = 1;
+  let food = [];
   let scrollProgress = 0;
 
   const pointer = { x: -9999, y: -9999, active: false, at: 0 };
@@ -1502,10 +1503,87 @@
     if (deep.length > 8) deep.splice(0, deep.length - 8);
   }
 
+  /* ------------------------------------------------------------------ */
+  /* fish food: click the water and the fish come to eat                  */
+  /* ------------------------------------------------------------------ */
+
+  function dropFood(x, y) {
+    for (let i = 0; i < 6; i += 1) {
+      food.push({
+        x: x + rand(-14, 14),
+        y: y + rand(-10, 10),
+        vy: rand(18, 32),
+        phase: rand(0, TAU),
+        age: 0,
+        r: rand(2, 3.2),
+        taken: false,
+      });
+    }
+    if (food.length > 60) food.splice(0, food.length - 60);
+  }
+
+  function updateFood(dt, t) {
+    for (let i = food.length - 1; i >= 0; i -= 1) {
+      const p = food[i];
+      p.age += dt;
+      p.y += p.vy * dt;
+      p.x += Math.sin(t * 1.6 + p.phase) * 9 * dt;
+      if (p.taken || p.age > 16 || p.y > H * 0.93) food.splice(i, 1);
+    }
+  }
+
+  function chaseFood(f, dt) {
+    if (!food.length) return false;
+    let best = null;
+    let bestD = 420 + f.size * 6;
+    for (const p of food) {
+      const d = Math.hypot(p.x - f.x, p.y - f.y);
+      if (d < bestD) {
+        bestD = d;
+        best = p;
+      }
+    }
+    if (!best) return false;
+
+    if (bestD < f.size * 0.7 + 5) {
+      best.taken = true;
+      addRipple(best.x, best.y, 0.45);
+      return true;
+    }
+
+    const dx = best.x - f.x;
+    const dy = best.y - f.y;
+    if (Math.abs(dx) > 14) f.dir = dx > 0 ? 1 : -1;
+    const sp = (70 + f.size * 4) * f.z;
+    f.x += (dx / bestD) * sp * dt;
+    f.y += (dy / bestD) * sp * dt;
+    f.baseY = f.y;
+    f.vx = 0;
+    f.vy = 0;
+    return true;
+  }
+
+  function drawFood() {
+    if (!food.length) return;
+    ctx.save();
+    ctx.fillStyle = theme === "dark" ? "#ffd9a0" : "#c9772b";
+    for (const p of food) {
+      ctx.globalAlpha = Math.max(0, Math.min(1, (16 - p.age) / 3));
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, TAU);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
   function update(dt, t) {
     const on = pointerIsOn();
 
+    updateFood(dt, t);
+
     for (const f of fish) {
+      if (chaseFood(f, dt)) continue;
+
       // Fish scatter away from the pointer but never swim backwards.
       if (on) {
         const dx = f.x - pointer.x;
@@ -1683,6 +1761,7 @@
 
     // fish behind the reef
     for (const f of fish) drawFish(f, t);
+    drawFood();
 
     for (const c of deep) if (c.z >= 0.75) drawDeep(c, t);
 
@@ -1818,6 +1897,16 @@
       if (e.pointerType === "mouse" && e.button !== 0) return;
 
       addRipple(e.clientX, e.clientY, 1.7);
+
+      // Clicking open water feeds the fish; clicking UI still startles them.
+      const tg = e.target;
+      const onUi = tg && tg.closest && tg.closest("a, button, input, select, textarea, label, .card, .note, .stat, .cta__box, .player, .lightbox, .topbar");
+      if (!onUi) {
+        dropFood(e.clientX, e.clientY);
+        lastRipple = performance.now();
+        travel = 0;
+        return;
+      }
 
       // Nearby residents get a fright.
       for (const f of fish) {
