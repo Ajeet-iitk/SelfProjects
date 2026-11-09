@@ -87,6 +87,9 @@
     sort: $("#sort"),
     resultline: $("#resultline"),
     empty: $("#empty"),
+    more: $("#more"),
+    moreBtn: $("#more-btn"),
+    moreCount: $("#more-count"),
     clear: $("#clear-filters"),
     heroCount: $("#hero-count"),
     statTotal: $("#stat-total"),
@@ -109,6 +112,8 @@
     filter: "all",
     sort: "featured",
     view: "grid",
+    expanded: false,
+    sinking: false,
   };
 
   const lightbox = {
@@ -832,6 +837,12 @@
   function applyFilters() {
     const terms = state.q.toLowerCase().split(/\s+/).filter(Boolean);
     let visible = 0;
+    // Long shelves fold behind the sinking ship until it is clicked. A text
+    // search always shows everything so no match is hidden.
+    const LIMIT = window.innerWidth < 640 ? 6 : 9;
+    const fold = !state.expanded && terms.length === 0;
+    let passed = 0;
+    let folded = 0;
 
     for (const p of state.projects) {
       const haystack = [
@@ -855,12 +866,22 @@
 
       // Type/tag filters hide cards; the text query only "pings" them, so
       // matches glow and everything else dims (see sonar styles).
-      p.card.el.hidden = !matchesFilter;
+      let isFolded = false;
+      if (matchesFilter) {
+        passed += 1;
+        isFolded = fold && passed > LIMIT;
+        if (isFolded) folded += 1;
+      }
+      p.card.el.dataset.folded = isFolded ? "1" : "";
+      p.card.el.hidden = !matchesFilter || isFolded;
       const hit = matchesFilter && matchesQuery;
       p.card.el.classList.toggle("is-hit", hit && terms.length > 0);
       p.card.el.classList.toggle("is-dim", matchesFilter && !matchesQuery);
       if (hit) visible += 1;
     }
+
+    if (!state.sinking) dom.more.hidden = folded === 0;
+    dom.moreCount.textContent = String(folded);
 
     const total = state.projects.length;
     dom.resultline.textContent =
@@ -1003,6 +1024,29 @@
         applyFilters();
         if (state.q.trim()) sonarPing();
       }, 90);
+    });
+
+    dom.moreBtn.addEventListener("click", () => {
+      if (state.sinking) return;
+      state.sinking = true;
+      dom.more.classList.add("is-sinking");
+
+      const revealed = state.projects.filter((p) => p.card && p.card.el.dataset.folded === "1");
+      state.expanded = true;
+      applyFilters();
+      revealed.forEach((p, i) => {
+        const el = p.card.el;
+        el.style.setProperty("--j", String(Math.min(i, 14)));
+        el.classList.remove("rise");
+        void el.offsetWidth;
+        el.classList.add("rise");
+      });
+
+      setTimeout(() => {
+        state.sinking = false;
+        dom.more.hidden = true;
+        dom.more.classList.remove("is-sinking");
+      }, 2700);
     });
 
     dom.sort.addEventListener("change", () => {

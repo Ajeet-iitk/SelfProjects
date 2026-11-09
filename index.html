@@ -235,6 +235,35 @@
 
       <div class="grid" id="grid"></div>
 
+      <div class="more" id="more" hidden>
+        <button type="button" class="more__btn" id="more-btn" aria-label="Show more projects">
+          <svg class="more__scene" viewBox="0 0 200 120" aria-hidden="true">
+            <g class="more__ship">
+              <path d="M26 68 L174 68 L154 98 Q100 108 46 98 Z" fill="#7a4a2b"/>
+              <path d="M26 68 L174 68 L170 74 L30 74 Z" fill="#a86b3f"/>
+              <rect x="88" y="46" width="38" height="22" rx="3" fill="#d9e6ee"/>
+              <rect x="99" y="30" width="11" height="16" fill="#c0392b"/>
+              <rect x="97" y="28" width="15" height="4" fill="#2b2b2b"/>
+              <line x1="58" y1="68" x2="58" y2="20" stroke="#cfd8dc" stroke-width="2.4" stroke-linecap="round"/>
+              <path d="M58 20 L84 29 L58 38 Z" fill="#58f5c8"/>
+              <circle cx="96" cy="58" r="3" fill="#0b3a4a"/>
+              <circle cx="106" cy="58" r="3" fill="#0b3a4a"/>
+              <circle cx="116" cy="58" r="3" fill="#0b3a4a"/>
+              <circle cx="60" cy="84" r="2.6" fill="#ffd173"/>
+              <circle cx="82" cy="86" r="2.6" fill="#ffd173"/>
+              <circle cx="104" cy="87" r="2.6" fill="#ffd173"/>
+              <circle cx="126" cy="86" r="2.6" fill="#ffd173"/>
+            </g>
+            <path class="more__wave" d="M0 82 Q25 73 50 82 T100 82 T150 82 T200 82 V120 H0 Z"/>
+            <circle class="more__bubble" cx="70" cy="110" r="3"/>
+            <circle class="more__bubble" cx="100" cy="112" r="4"/>
+            <circle class="more__bubble" cx="130" cy="110" r="2.6"/>
+            <circle class="more__bubble" cx="86" cy="114" r="2.2"/>
+          </svg>
+          <span class="more__label">Show <b id="more-count">0</b> more</span>
+        </button>
+      </div>
+
       <div class="empty" id="empty" hidden>
         <p class="empty__title">Nothing matches that.</p>
         <p class="empty__sub">Try a different word, or clear the filters.</p>
@@ -275,6 +304,11 @@
           <span class="note__num">Scroll</span>
           <h3>Depth meter</h3>
           <p>The gauge on the right edge counts your dive from the surface to the Mariana Trench and names each ocean zone as you pass through it.</p>
+        </article>
+        <article class="note explore__item">
+          <span class="note__num">Click</span>
+          <h3>Sinking ship</h3>
+          <p>When there are lots of projects, a little ship waits under the shelf. Click it and it sinks while the rest of the projects float into view.</p>
         </article>
         <article class="note explore__item">
           <span class="note__num">W</span>
