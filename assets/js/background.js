@@ -886,66 +886,71 @@
   /* bioluminescence: soft aura, glowing body rim, pulsing light spots    */
   /* ------------------------------------------------------------------ */
 
+  // Glow is drawn from small pre-rendered sprites. canvas shadowBlur is far
+  // too slow to run on dozens of shapes every frame.
+  const glowSprites = new Map();
+
+  function glowSprite(rgb) {
+    let sp = glowSprites.get(rgb);
+    if (sp) return sp;
+    sp = document.createElement("canvas");
+    sp.width = sp.height = 48;
+    const g = sp.getContext("2d");
+    const grad = g.createRadialGradient(24, 24, 0, 24, 24, 24);
+    grad.addColorStop(0, `rgba(${rgb}, 1)`);
+    grad.addColorStop(0.25, `rgba(${rgb}, 0.55)`);
+    grad.addColorStop(1, `rgba(${rgb}, 0)`);
+    g.fillStyle = grad;
+    g.fillRect(0, 0, 48, 48);
+    glowSprites.set(rgb, sp);
+    return sp;
+  }
+
   /** Soft coloured haze behind a creature (local, already-scaled coords). */
   function bioAura(rx, ry, rgb, t, phase) {
     const k = theme === "dark" ? 1 : 0.35;
     const pulse = 0.8 + 0.2 * Math.sin(t * 0.9 + phase);
     ctx.save();
     ctx.globalCompositeOperation = "lighter";
-    ctx.scale(1, ry / rx);
-    const g = ctx.createRadialGradient(0, 0, rx * 0.1, 0, 0, rx);
-    g.addColorStop(0, `rgba(${rgb}, ${0.2 * k * pulse})`);
-    g.addColorStop(1, `rgba(${rgb}, 0)`);
-    ctx.fillStyle = g;
-    ctx.beginPath();
-    ctx.arc(0, 0, rx, 0, TAU);
-    ctx.fill();
+    ctx.globalAlpha *= 0.22 * k * pulse;
+    ctx.drawImage(glowSprite(rgb), -rx, -ry, rx * 2, ry * 2);
     ctx.restore();
   }
 
-  /** Makes the next fills/strokes cast a coloured glow (dark theme only). */
-  function bioRim(rgb, blur) {
-    if (theme !== "dark") return;
-    ctx.shadowColor = `rgba(${rgb}, 0.7)`;
-    ctx.shadowBlur = blur;
-  }
-
-  function bioRimOff() {
-    ctx.shadowColor = "transparent";
-    ctx.shadowBlur = 0;
-  }
+  // Kept as no-ops so the creature code reads the same; the rim glow now
+  // comes from the coloured outline strokes instead of a shadow.
+  function bioRim() {}
+  function bioRimOff() {}
 
   /** Glowing dots whose brightness ripples along the body like a wave. */
   function bioDots(dots, rgb, t, phase, r) {
     const k = theme === "dark" ? 1 : 0.5;
+    const sp = glowSprite(rgb);
     ctx.save();
     ctx.globalCompositeOperation = "lighter";
+    const base = ctx.globalAlpha;
     for (let i = 0; i < dots.length; i += 1) {
       const wave = 0.5 + 0.5 * Math.sin(t * 1.7 - i * 0.55 + phase);
-      const a = (0.25 + 0.75 * wave) * k;
-      const rr = r * (0.75 + 0.5 * wave);
-      ctx.shadowColor = `rgba(${rgb}, ${a})`;
-      ctx.shadowBlur = 10 * k;
-      ctx.fillStyle = `rgba(${rgb}, ${a})`;
-      ctx.beginPath();
-      ctx.arc(dots[i][0], dots[i][1], rr, 0, TAU);
-      ctx.fill();
+      ctx.globalAlpha = base * (0.3 + 0.7 * wave) * k;
+      const d = r * (3.2 + wave * 1.6);
+      ctx.drawImage(sp, dots[i][0] - d, dots[i][1] - d, d * 2, d * 2);
     }
     ctx.restore();
   }
 
-  /** A glowing line following a curve traced by `trace`. */
+  /** A glowing line: a wide faint stroke under a thin bright one. */
   function bioLine(trace, rgb, width, alpha) {
     const k = theme === "dark" ? 1 : 0.5;
     ctx.save();
     ctx.globalCompositeOperation = "lighter";
     ctx.lineCap = "round";
-    ctx.strokeStyle = `rgba(${rgb}, ${alpha * k})`;
-    ctx.shadowColor = `rgba(${rgb}, ${0.8 * k})`;
-    ctx.shadowBlur = 12 * k;
-    ctx.lineWidth = width;
     ctx.beginPath();
     trace();
+    ctx.strokeStyle = `rgba(${rgb}, ${0.18 * alpha * k})`;
+    ctx.lineWidth = width * 4;
+    ctx.stroke();
+    ctx.strokeStyle = `rgba(${rgb}, ${alpha * k})`;
+    ctx.lineWidth = width;
     ctx.stroke();
     ctx.restore();
   }
