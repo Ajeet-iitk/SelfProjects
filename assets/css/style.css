@@ -1412,6 +1412,35 @@ code {
   color: var(--muted-dim);
 }
 
+.footer__social {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.footer__social a {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  color: var(--muted-dim);
+  transition: color 0.2s, border-color 0.2s, transform 0.2s;
+}
+
+.footer__social a:hover,
+.footer__social a:focus-visible {
+  color: var(--mint);
+  border-color: var(--mint);
+  transform: translateY(-2px);
+}
+
+.footer__social svg {
+  width: 18px;
+  height: 18px;
+}
+
 .footer__meta {
   display: inline-flex;
   align-items: center;
