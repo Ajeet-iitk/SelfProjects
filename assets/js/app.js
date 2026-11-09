@@ -89,7 +89,9 @@
     empty: $("#empty"),
     more: $("#more"),
     moreBtn: $("#more-btn"),
-    moreCount: $("#more-count"),
+    moreBar: $("#more-bar"),
+    moreStatus: $("#more-status"),
+    moreText: $("#more-text"),
     clear: $("#clear-filters"),
     heroCount: $("#hero-count"),
     statTotal: $("#stat-total"),
@@ -113,7 +115,6 @@
     sort: "featured",
     view: "grid",
     expanded: false,
-    sinking: false,
   };
 
   const lightbox = {
@@ -837,7 +838,7 @@
   function applyFilters() {
     const terms = state.q.toLowerCase().split(/\s+/).filter(Boolean);
     let visible = 0;
-    // Long shelves fold behind the sinking ship until it is clicked. A text
+    // Long shelves fold behind the Show more button. A text
     // search always shows everything so no match is hidden.
     const LIMIT = window.innerWidth < 640 ? 6 : 9;
     const fold = !state.expanded && terms.length === 0;
@@ -880,8 +881,16 @@
       if (hit) visible += 1;
     }
 
-    if (!state.sinking) dom.more.hidden = folded === 0;
-    dom.moreCount.textContent = String(folded);
+    const foldable = terms.length === 0 && passed > LIMIT;
+    dom.more.hidden = !foldable;
+    dom.grid.classList.toggle("is-folded", foldable && !state.expanded);
+    if (foldable) {
+      const shown = state.expanded ? passed : LIMIT;
+      dom.moreBar.style.width = `${Math.round((shown / passed) * 100)}%`;
+      dom.moreStatus.textContent = state.expanded ? `Showing all ${passed}` : `Showing ${shown} of ${passed}`;
+      dom.moreText.textContent = state.expanded ? "Show fewer" : `Show ${folded} more`;
+      dom.moreBtn.setAttribute("aria-expanded", String(state.expanded));
+    }
 
     const total = state.projects.length;
     dom.resultline.textContent =
@@ -1027,9 +1036,12 @@
     });
 
     dom.moreBtn.addEventListener("click", () => {
-      if (state.sinking) return;
-      state.sinking = true;
-      dom.more.classList.add("is-sinking");
+      if (state.expanded) {
+        state.expanded = false;
+        applyFilters();
+        document.getElementById("projects").scrollIntoView({ behavior: "smooth", block: "start" });
+        return;
+      }
 
       const revealed = state.projects.filter((p) => p.card && p.card.el.dataset.folded === "1");
       state.expanded = true;
@@ -1042,11 +1054,9 @@
         el.classList.add("rise");
       });
 
-      setTimeout(() => {
-        state.sinking = false;
-        dom.more.hidden = true;
-        dom.more.classList.remove("is-sinking");
-      }, 2700);
+      dom.moreBtn.classList.remove("is-diving");
+      void dom.moreBtn.offsetWidth;
+      dom.moreBtn.classList.add("is-diving");
     });
 
     dom.sort.addEventListener("change", () => {

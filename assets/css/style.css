@@ -2685,118 +2685,105 @@ body.is-watching .watch-hud {
 /* the dimmed cards and sonar must never create sideways scrolling */
 html, body { overflow-x: clip; }
 
-/* ---------- show more: the sinking ship ---------- */
+/* ---------- show more ---------- */
+.grid.is-folded {
+  -webkit-mask-image: linear-gradient(180deg, #000 calc(100% - 150px), transparent 100%);
+  mask-image: linear-gradient(180deg, #000 calc(100% - 150px), transparent 100%);
+}
+
 .more {
-  display: flex;
-  justify-content: center;
-  margin-top: 30px;
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  margin-top: 10px;
 }
 
 .more[hidden] { display: none; }
 
-.more__btn {
-  display: grid;
-  justify-items: center;
-  gap: 2px;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--text);
-  cursor: pointer;
-}
-
-.more__scene {
-  width: min(300px, 70vw);
-  height: auto;
+.more__meter {
+  width: min(220px, 60vw);
+  height: 3px;
+  border-radius: 3px;
+  background: var(--line);
   overflow: hidden;
-  border-radius: 18px;
 }
 
-.more__ship {
-  transform-box: fill-box;
-  transform-origin: 50% 80%;
-  transform: rotate(-9deg);
-  animation: shipBob 4.2s ease-in-out infinite;
+.more__meter span {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--mint), #7cc8ff);
+  transition: width 0.9s var(--ease);
 }
 
-@keyframes shipBob {
-  0%, 100% { transform: translateY(0) rotate(-9deg); }
-  50% { transform: translateY(3px) rotate(-13deg); }
+.more__status {
+  margin: 0;
+  font: 0.72rem var(--font-mono);
+  letter-spacing: 0.04em;
+  color: var(--muted);
 }
 
-.more__wave {
-  fill: rgba(10, 60, 80, 0.92);
-  animation: waveSlide 3.6s ease-in-out infinite alternate;
+.more__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 22px;
+  border: 1px solid rgba(88, 245, 200, 0.4);
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(88, 245, 200, 0.14), rgba(88, 245, 200, 0.04));
+  color: var(--text);
+  font: 600 0.9rem var(--font-sans, inherit);
+  cursor: pointer;
+  transition: transform 0.25s var(--ease), border-color 0.25s, box-shadow 0.3s, background 0.25s;
 }
 
-@keyframes waveSlide {
-  from { transform: translateX(-6px); }
-  to { transform: translateX(6px); }
+.more__btn:hover,
+.more__btn:focus-visible {
+  transform: translateY(-2px);
+  border-color: var(--mint);
+  box-shadow: 0 8px 30px rgba(88, 245, 200, 0.18);
 }
 
-.more__bubble {
-  fill: none;
-  stroke: rgba(190, 240, 255, 0.8);
-  stroke-width: 1;
-  opacity: 0;
-}
+.more__btn:active { transform: translateY(0) scale(0.98); }
 
-.more__label {
-  font: 500 0.85rem var(--font-mono);
+.more__icon,
+.more__chev {
+  width: 20px;
+  height: 20px;
   color: var(--mint);
-  transition: opacity 0.6s;
+  flex: none;
 }
 
-.more__label b { font-weight: 700; }
+.more__chev { width: 16px; height: 16px; transition: transform 0.3s var(--ease); }
 
-.more__btn:hover .more__ship,
-.more__btn:focus-visible .more__ship {
-  animation-duration: 2.4s;
+.more__btn:hover .more__chev { transform: translateY(2px); }
+.more__btn[aria-expanded="true"] .more__chev { transform: rotate(180deg); }
+.more__btn[aria-expanded="true"]:hover .more__chev { transform: rotate(180deg) translateY(2px); }
+
+/* the little ship dips under the surface when you click */
+.more__btn.is-diving .more__icon {
+  animation: iconDive 1.1s ease-in-out;
 }
 
-.more__btn:focus-visible .more__label { text-decoration: underline; }
-
-/* the click: it goes down by the stern, bubbles rise, the label fades */
-.more.is-sinking .more__btn { pointer-events: none; }
-
-.more.is-sinking .more__ship {
-  animation: shipSink 2.5s cubic-bezier(0.5, 0, 0.8, 0.6) forwards;
+@keyframes iconDive {
+  0% { transform: translateY(0) rotate(0); opacity: 1; }
+  45% { transform: translateY(10px) rotate(-24deg); opacity: 0; }
+  55% { transform: translateY(-10px) rotate(0); opacity: 0; }
+  100% { transform: translateY(0) rotate(0); opacity: 1; }
 }
 
-.more.is-sinking .more__label { opacity: 0; }
-
-.more.is-sinking .more__bubble {
-  animation: bubbleUp 2s ease-out infinite;
-}
-
-.more.is-sinking .more__bubble:nth-of-type(2) { animation-delay: 0.3s; }
-.more.is-sinking .more__bubble:nth-of-type(3) { animation-delay: 0.6s; }
-.more.is-sinking .more__bubble:nth-of-type(4) { animation-delay: 0.9s; }
-
-@keyframes shipSink {
-  0% { transform: translateY(0) rotate(-9deg); }
-  35% { transform: translateY(8px) rotate(-30deg); }
-  100% { transform: translateY(78px) rotate(-68deg); }
-}
-
-@keyframes bubbleUp {
-  0% { transform: translateY(0); opacity: 0; }
-  20% { opacity: 0.9; }
-  100% { transform: translateY(-60px); opacity: 0; }
-}
-
-/* the newly revealed cards drift in from above, like they floated off the wreck */
+/* newly revealed cards float up into place */
 .card.rise {
-  animation: cardRise 0.9s var(--ease) calc(var(--j, 0) * 80ms) backwards;
+  animation: cardRise 0.8s var(--ease) calc(var(--j, 0) * 70ms) backwards;
 }
 
 @keyframes cardRise {
-  from { opacity: 0; transform: translateY(-46px) scale(0.94) rotate(-1.2deg); }
+  from { opacity: 0; transform: translateY(34px) scale(0.97); }
   to { opacity: 1; transform: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .more__ship, .more__wave { animation: none; }
-  .more.is-sinking .more__ship { animation-duration: 0.01s; }
-  .card.rise { animation: none; }
+  .card.rise, .more__btn.is-diving .more__icon { animation: none; }
+  .more__meter span { transition: none; }
 }
