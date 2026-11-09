@@ -36,6 +36,13 @@ window.PORTFOLIO = {
   /* How long GitHub metadata is cached in the visitor's browser (hours). */
   cacheHours: 12,
 
+  /* Every other public, non-fork, non-empty repository on this account is
+     discovered automatically. Add repository names here to leave one out. */
+  exclude: [],
+
+  /* Safety cap for automatic discovery (curated entries are always shown). */
+  maxAutoProjects: 60,
+
   projects: [
     {
       repo: "Ajeet-iitk/IndianParliament",

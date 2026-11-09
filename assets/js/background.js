@@ -70,6 +70,13 @@
       manta: "rgba(5, 26, 34, 0.62)",
       ripple: "150, 240, 255",
       rippleAlpha: 0.45,
+      plankton: "150, 255, 225",
+      planktonAlpha: 0.95,
+      causticAlpha: 0.13,
+      starfish: "#ff9d7a",
+      urchin: "#0b4450",
+      anemone: "rgba(255, 120, 190, 0.85)",
+      anemoneTip: "rgba(255, 214, 240, 0.95)",
     },
     light: {
       ray: "255, 255, 255",
@@ -101,6 +108,13 @@
       manta: "rgba(8, 72, 86, 0.38)",
       ripple: "20, 140, 165",
       rippleAlpha: 0.5,
+      plankton: "235, 255, 252",
+      planktonAlpha: 0.75,
+      causticAlpha: 0.3,
+      starfish: "#e07a4f",
+      urchin: "#3a7f8a",
+      anemone: "rgba(210, 90, 140, 0.8)",
+      anemoneTip: "rgba(255, 225, 240, 0.95)",
     },
   };
 
@@ -121,6 +135,7 @@
   let mantaTimer = 12;
   let reefSprite = null;
   let reefH = 0;
+  let plankton = [];
 
   let deep = [];
   let deepTimer = 1;
@@ -205,6 +220,87 @@
       g.ellipse(ox + w / 2, y - h + 2, w * 0.4, w * 0.28, 0, 0, TAU);
       g.fill();
     }
+  }
+
+  function drawStarfish(g, x, y, s, color) {
+    g.save();
+    g.translate(x, y);
+    g.rotate(rand(-0.5, 0.5));
+    g.fillStyle = color;
+    g.globalAlpha = 0.9;
+    g.beginPath();
+    for (let i = 0; i < 10; i += 1) {
+      const a = -Math.PI / 2 + (i / 10) * TAU;
+      const radius = i % 2 === 0 ? s : s * 0.42;
+      const px = Math.cos(a) * radius;
+      const py = Math.sin(a) * radius * 0.86;
+      if (i === 0) g.moveTo(px, py);
+      else g.lineTo(px, py);
+    }
+    g.closePath();
+    g.fill();
+
+    // little bumps along each arm
+    g.fillStyle = "rgba(255, 255, 255, 0.35)";
+    for (let i = 0; i < 5; i += 1) {
+      const a = -Math.PI / 2 + (i / 5) * TAU;
+      for (let k = 0.35; k < 0.85; k += 0.22) {
+        g.beginPath();
+        g.arc(Math.cos(a) * s * k, Math.sin(a) * s * k * 0.86, s * 0.055, 0, TAU);
+        g.fill();
+      }
+    }
+    g.restore();
+  }
+
+  function drawUrchin(g, x, y, r, color) {
+    g.save();
+    g.translate(x, y);
+    g.strokeStyle = color;
+    g.lineWidth = Math.max(1, r * 0.09);
+    g.lineCap = "round";
+    const n = 15;
+    for (let i = 0; i < n; i += 1) {
+      const a = (i / n) * TAU + rand(-0.1, 0.1);
+      const len = r * rand(1.35, 1.9);
+      g.beginPath();
+      g.moveTo(Math.cos(a) * r * 0.3, Math.sin(a) * r * 0.3);
+      g.lineTo(Math.cos(a) * len, Math.sin(a) * len * 0.8);
+      g.stroke();
+    }
+    g.fillStyle = color;
+    g.beginPath();
+    g.ellipse(0, 0, r * 0.72, r * 0.6, 0, 0, TAU);
+    g.fill();
+    g.fillStyle = "rgba(255, 255, 255, 0.18)";
+    g.beginPath();
+    g.arc(-r * 0.18, -r * 0.2, r * 0.2, 0, TAU);
+    g.fill();
+    g.restore();
+  }
+
+  function drawAnemone(g, x, y, s, color, tipColor) {
+    g.save();
+    g.translate(x, y);
+    g.lineCap = "round";
+    const n = 9;
+    for (let i = 0; i < n; i += 1) {
+      const a = -Math.PI / 2 + ((i - (n - 1) / 2) / n) * 2.1;
+      const len = s * rand(0.75, 1.15);
+      const ex = Math.cos(a) * len;
+      const ey = Math.sin(a) * len;
+      g.strokeStyle = color;
+      g.lineWidth = Math.max(1.4, s * 0.11);
+      g.beginPath();
+      g.moveTo(0, 0);
+      g.quadraticCurveTo(ex * 0.35, ey * 0.6, ex, ey);
+      g.stroke();
+      g.fillStyle = tipColor;
+      g.beginPath();
+      g.arc(ex, ey, Math.max(1.2, s * 0.075), 0, TAU);
+      g.fill();
+    }
+    g.restore();
   }
 
   function drawWreck(g, x, y, s) {
@@ -355,6 +451,22 @@
       }
     }
 
+    // floor life: starfish, urchins and swaying anemones
+    const decor = W < 640 ? 5 : 9;
+    for (let i = 0; i < decor; i += 1) {
+      const x = rand(W * 0.02, W * 0.98);
+      const y = floor(x) + rand(2, 12);
+      const kind = i % 3;
+
+      if (kind === 0) {
+        drawStarfish(g, x, y + 6, rand(7, 13), P.starfish);
+      } else if (kind === 1) {
+        drawUrchin(g, x, y + 2, rand(7, 13), P.urchin);
+      } else {
+        drawAnemone(g, x, y + 4, rand(14, 26), P.anemone, P.anemoneTip);
+      }
+    }
+
     // the wreck, offset from the busiest coral
     drawWreck(g, W > 900 ? W * 0.78 : W * 0.8, floor(W * 0.8) + 30, W < 640 ? 0.78 : 1.12);
 
@@ -455,6 +567,21 @@
 
     manta = null;
     mantaTimer = rand(6, 14);
+
+    // Bioluminescent plankton: tiny drifters that scatter away from the
+    // pointer, denser and brighter in the deep-sea palette.
+    const planktonN = Math.round(clamp((W * H) / 17000, 36, 120));
+    plankton = Array.from({ length: planktonN }, () => ({
+      x: rand(0, W),
+      y: rand(0, H),
+      z: rand(0.3, 1),
+      r: rand(0.6, 2.1),
+      vx: 0,
+      vy: 0,
+      phase: rand(0, TAU),
+      speed: rand(0.35, 1.1),
+      drift: rand(4, 12),
+    }));
   }
 
   function makeBubble(y) {
@@ -1097,6 +1224,59 @@
     ctx.restore();
   }
 
+  function drawCaustics(t) {
+    const lines = theme === "dark" ? 4 : 3;
+    const band = Math.min(H * 0.5, 460);
+
+    ctx.save();
+    if (theme === "dark") ctx.globalCompositeOperation = "lighter";
+    ctx.lineCap = "round";
+
+    for (let layer = 0; layer < lines; layer += 1) {
+      const baseY = 16 + layer * 27 + band * 0.02;
+      ctx.strokeStyle = `rgba(${P.caustic}, ${P.causticAlpha * (1 - layer * 0.17)})`;
+      ctx.lineWidth = 1 + (layer % 2) * 0.6;
+      ctx.beginPath();
+
+      for (let x = -24; x <= W + 24; x += 24) {
+        const y =
+          baseY +
+          Math.sin(x * 0.011 + t * 0.55 + layer * 1.7) * 13 +
+          Math.sin(x * 0.004 - t * 0.32 + layer * 0.8) * 24;
+        if (x <= -24) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawPlankton(t) {
+    if (!plankton.length) return;
+
+    ctx.save();
+    if (theme === "dark") ctx.globalCompositeOperation = "lighter";
+
+    for (const p of plankton) {
+      const twinkle = 0.32 + 0.68 * Math.abs(Math.sin(t * p.speed * 1.6 + p.phase));
+      const a = P.planktonAlpha * twinkle * p.z;
+      const r = p.r * (0.6 + p.z * 0.7);
+
+      // soft halo
+      ctx.fillStyle = `rgba(${P.plankton}, ${a * 0.16})`;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, r * 3.2, 0, TAU);
+      ctx.fill();
+
+      // bright core
+      ctx.fillStyle = `rgba(${P.plankton}, ${a})`;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, r, 0, TAU);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
   function drawBubbles() {
     for (const b of bubbles) {
       ctx.globalAlpha = b.alpha;
@@ -1404,6 +1584,34 @@
       }
     }
 
+    // Plankton drift on the current and scatter from the pointer.
+    for (const p of plankton) {
+      p.x += Math.sin(t * p.speed + p.phase) * p.drift * dt;
+      p.y += Math.cos(t * p.speed * 0.7 + p.phase) * p.drift * 0.6 * dt;
+
+      if (on) {
+        const dx = p.x - pointer.x;
+        const dy = p.y - pointer.y;
+        const d = Math.hypot(dx, dy);
+        const radius = 90 + p.z * 60;
+        if (d < radius && d > 0.5) {
+          const k = (1 - d / radius) * 90;
+          p.vx += (dx / d) * k;
+          p.vy += (dy / d) * k;
+        }
+      }
+
+      p.vx *= Math.pow(0.12, dt);
+      p.vy *= Math.pow(0.12, dt);
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+
+      if (p.x < -6) p.x = W + 6;
+      else if (p.x > W + 6) p.x = -6;
+      if (p.y < -6) p.y = H + 6;
+      else if (p.y > H + 6) p.y = -6;
+    }
+
     if (manta) {
       manta.x += manta.speed * manta.dir * dt;
       if (manta.dir > 0 && manta.x > W + manta.size * 2) manta = null;
@@ -1463,6 +1671,7 @@
     }
 
     drawRays(t);
+    drawCaustics(t);
 
     // the distant giants drift behind everything else
     for (const c of deep) if (c.z < 0.45) drawDeep(c, t);
@@ -1484,6 +1693,8 @@
       ctx.drawImage(reefSprite, 0, H - reefH, W, reefH);
       ctx.globalAlpha = 1;
     }
+
+    drawPlankton(t);
 
     // marine snow
     ctx.fillStyle = `rgba(${P.snow}, ${P.snowAlpha})`;

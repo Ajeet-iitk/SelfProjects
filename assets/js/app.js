@@ -1,7 +1,11 @@
 /* ==========================================================================
    Ajeet — Hobby Arcade
-   Renders the shelf from projects.js, enriches each card from the GitHub API,
-   and finds a screenshot using a fallback chain:
+   Renders the shelf from projects.js, then discovers every other relevant
+   public repository on the owner's GitHub account and adds it automatically.
+   A single list request supplies description, language, stars, topics,
+   homepage and Pages state, so no per-repository API calls are needed.
+
+   Screenshots use a fallback chain:
 
      1. explicit `thumb:` in projects.js
      2. thumbnails/<slug>.{webp,png,jpg,jpeg,gif}
@@ -20,6 +24,12 @@
   const THUMB_DIR = (CFG.thumbDir || "thumbnails").replace(/\/+$/, "");
   const CACHE_HOURS = Number(CFG.cacheHours) || 12;
   const CACHE_PREFIX = "hobby-arcade:repo:v1:";
+  const MAX_DISCOVERED = Number(CFG.maxAutoProjects) || 60;
+
+  /* Repositories the visitor (or the owner) does not want auto-added. */
+  const EXCLUDE = new Set(
+    (CFG.exclude || []).map((name) => String(name).replace(/^.*\//, "").toLowerCase())
+  );
 
   /* Set when GitHub says 403/429 so the queue stops instead of hammering it. */
   let apiBlocked = false;
@@ -226,6 +236,83 @@
   }
 
   /* ------------------------------------------------------------------ */
+  /* automatic repository discovery                                      */
+  /* ------------------------------------------------------------------ */
+
+  /** Public, non-fork, non-empty repositories worth showing on the shelf. */
+  function repoIsRelevant(d) {
+    if (!d || !d.name) return false;
+    const name = String(d.name).toLowerCase();
+
+    return (
+      !d.fork &&
+      !d.archived &&
+      !d.private &&
+      Number(d.size) > 0 &&
+      name !== OWNER.toLowerCase() &&
+      name !== "selfprojects" &&
+      name !== ".github" &&
+      !EXCLUDE.has(name)
+    );
+  }
+
+  function inferType(d) {
+    const words = `${d.name || ""} ${d.description || ""} ${(d.topics || []).join(" ")}`.toLowerCase();
+
+    if (/\b(game|games|gaming|arcade|racer|racing|runner|puzzle|threejs|three\.js|webgl|unity|godot|simulator)\b/.test(words)) {
+      return "game";
+    }
+    if (/\b(android|kotlin|ios|swift|flutter|apk|alarm)\b/.test(words)) {
+      return "app";
+    }
+    if (/\b(experiment|demo|prototype|playground|toy|art|visuali[sz]er)\b/.test(words)) {
+      return "experiment";
+    }
+    if (d.has_pages || /\b(web|site|website|portfolio|blog)\b/.test(words)) {
+      return "web";
+    }
+    return "experiment";
+  }
+
+  function listDemo(d) {
+    const home = String(d.homepage || "").trim();
+    if (home) return /^https?:\/\//i.test(home) ? home : `https://${home}`;
+
+    if (d.has_pages && !/\.github\.io$/i.test(String(d.name || ""))) {
+      return `https://${OWNER.toLowerCase()}.github.io/${d.name}/`;
+    }
+    return "";
+  }
+
+  function listTags(d) {
+    const topics = (d.topics || []).map(String).filter(Boolean).slice(0, 4);
+    if (topics.length) return topics;
+    return d.language ? [String(d.language)] : [];
+  }
+
+  function discoveredTitle(name) {
+    return prettyName(name)
+      .replace(/(\d)\s+(\d+)$/, "$1.$2")
+      .replace(/([A-Za-z])(\d)/g, "$1 $2");
+  }
+
+  function discoveredItem(d) {
+    const base = discoveredTitle(d.name);
+    const title = /^[a-z]{2,4}$/.test(String(d.name)) ? String(d.name).toUpperCase() : base;
+
+    return {
+      repo: `${OWNER}/${d.name}`,
+      title,
+      blurb:
+        String(d.description || "").trim() ||
+        `A public ${d.language || "code"} project — source and history on GitHub.`,
+      tags: listTags(d),
+      type: inferType(d),
+      demo: listDemo(d),
+    };
+  }
+
+  /* ------------------------------------------------------------------ */
   /* card construction                                                    */
   /* ------------------------------------------------------------------ */
 
@@ -354,19 +441,70 @@
     return Array.from(new Set(urls));
   }
 
+  const OG_HOST = "opengraph.githubassets.com";
+
+  /* GitHub generates a plain, near-white 2:1 card for repositories without a
+     custom social preview. Those look like broken images inside the deep-sea
+     theme, so they are detected and replaced by the generated gradient tile. */
+  function isGenericPreview(img) {
+    if (!img.naturalWidth || !img.naturalHeight) return false;
+    if (Math.abs(img.naturalWidth / img.naturalHeight - 2) > 0.02) return false;
+
+    try {
+      const probe = document.createElement("canvas");
+      probe.width = 24;
+      probe.height = 12;
+      const g = probe.getContext("2d", { willReadFrequently: true });
+      g.drawImage(img, 0, 0, 24, 12);
+      const px = g.getImageData(0, 0, 24, 12).data;
+
+      let lum = 0;
+      let sat = 0;
+      let n = 0;
+
+      for (let i = 0; i < px.length; i += 4) {
+        const r = px[i];
+        const gg = px[i + 1];
+        const b = px[i + 2];
+        lum += (0.2126 * r + 0.7152 * gg + 0.0722 * b) / 255;
+        const mx = Math.max(r, gg, b);
+        const mn = Math.min(r, gg, b);
+        sat += mx ? (mx - mn) / mx : 0;
+        n += 1;
+      }
+
+      return lum / n > 0.78 && sat / n < 0.14;
+    } catch {
+      // Cross-origin pixels unavailable: trust the image.
+      return false;
+    }
+  }
+
   function firstImage(urls) {
     return new Promise((resolve) => {
       let i = 0;
 
       const next = () => {
         if (i >= urls.length) return resolve("");
+        const url = urls[i];
         const img = new Image();
-        img.onload = () => resolve(img.naturalWidth > 1 ? urls[i] : "");
+
+        // Only GitHub's preview needs CORS, so file:// previews keep working.
+        if (url.includes(OG_HOST)) img.crossOrigin = "anonymous";
+
+        img.onload = () => {
+          if (url.includes(OG_HOST) && isGenericPreview(img)) {
+            i += 1;
+            next();
+            return;
+          }
+          resolve(img.naturalWidth > 1 ? url : "");
+        };
         img.onerror = () => {
           i += 1;
           next();
         };
-        img.src = urls[i];
+        img.src = url;
       };
 
       next();
@@ -395,6 +533,51 @@
       { once: true }
     );
     c.img.src = url;
+  }
+
+  /* Discovered repositories resolve their social preview only when their
+     card is near the viewport, two at a time. Forty simultaneous requests
+     would otherwise hit GitHub's image rate limit. */
+  const thumbQueue = [];
+  let thumbActive = 0;
+
+  function pumpThumbQueue() {
+    while (thumbActive < 2 && thumbQueue.length) {
+      const p = thumbQueue.shift();
+      thumbActive += 1;
+      Promise.resolve(loadThumbnail(p)).finally(() => {
+        thumbActive -= 1;
+        setTimeout(pumpThumbQueue, 180);
+      });
+    }
+  }
+
+  const thumbObserver =
+    "IntersectionObserver" in window
+      ? new IntersectionObserver(
+          (entries) => {
+            for (const entry of entries) {
+              if (!entry.isIntersecting) continue;
+              const p = entry.target.__portfolio;
+              thumbObserver.unobserve(entry.target);
+              if (!p) continue;
+              thumbQueue.push(p);
+              pumpThumbQueue();
+            }
+          },
+          { rootMargin: "600px 0px" }
+        )
+      : null;
+
+  function loadThumbnailWhenNear(p) {
+    if (!p.card) return;
+    if (!thumbObserver) {
+      thumbQueue.push(p);
+      pumpThumbQueue();
+      return;
+    }
+    p.card.el.__portfolio = p;
+    thumbObserver.observe(p.card.el);
   }
 
   /* ------------------------------------------------------------------ */
@@ -457,6 +640,103 @@
 
     applyMeta(p);
     applyDemo(p);
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* discovery + merge                                                   */
+  /* ------------------------------------------------------------------ */
+
+  let discovered = false;
+  let discoveryStarted = false;
+
+  function mergeRepoList(list) {
+    if (discovered || !Array.isArray(list) || !list.length) return;
+    discovered = true;
+
+    const byName = new Map();
+    for (const d of list) {
+      if (d && d.name) byName.set(String(d.name).toLowerCase(), d);
+    }
+
+    // Curated entries take their metadata from the same list, so the old
+    // per-repository requests are no longer needed on a normal visit.
+    let enriched = false;
+    for (const p of state.projects) {
+      const d = byName.get(p.repo.toLowerCase());
+      if (!d) continue;
+      applyGitHub(p, d);
+      enriched = true;
+    }
+
+    const known = new Set(state.projects.map((p) => p.repo.toLowerCase()));
+    let added = 0;
+
+    for (const d of list) {
+      if (added >= MAX_DISCOVERED) break;
+      if (!repoIsRelevant(d)) continue;
+
+      const key = String(d.name).toLowerCase();
+      if (known.has(key)) continue;
+      known.add(key);
+
+      const p = normalise(discoveredItem(d), state.projects.length);
+      if (!p.repo) continue;
+
+      p.language = d.language || "";
+      p.stars = Number(d.stargazers_count) || 0;
+      p.pushedAt = d.pushed_at || "";
+      p.discovered = true;
+
+      state.projects.push(p);
+      dom.grid.appendChild(buildCard(p, state.projects.length - 1));
+      p.card.el.classList.add("in");
+      applyMeta(p);
+      loadThumbnailWhenNear(p);
+      added += 1;
+    }
+
+    if (!added && !enriched) return;
+
+    sortProjects();
+    buildChips();
+    updateStats();
+    applyFilters();
+  }
+
+  async function discoverRepos() {
+    if (discoveryStarted) return;
+    discoveryStarted = true;
+
+    // The list is cached for CACHE_HOURS, so returning visitors make no
+    // request at all. One list call covers every repository.
+    const cached = readCache("list");
+    if (Array.isArray(cached)) {
+      mergeRepoList(cached);
+      return;
+    }
+
+    try {
+      const res = await fetch(
+        `https://api.github.com/users/${encodeURIComponent(OWNER)}/repos?per_page=100&sort=updated`,
+        { headers: { Accept: "application/vnd.github+json" } }
+      );
+
+      if (res.status === 403 || res.status === 429) {
+        apiBlocked = true;
+        return;
+      }
+      if (!res.ok) return;
+
+      const list = await res.json();
+      if (!Array.isArray(list)) return;
+
+      writeCache("list", list);
+      mergeRepoList(list);
+    } catch {
+      // Offline or blocked: the curated shelf still renders, and the
+      // per-repository cache path can fill in a little detail.
+      hydrateAll();
+    }
   }
 
   /* ------------------------------------------------------------------ */
@@ -750,10 +1030,10 @@
 
     updateStats();
 
-    /* Thumbnails resolve in parallel. Metadata is fetched one at a time so a
-       rate limit stops the queue instead of hammering the API. */
+    /* Thumbnails resolve in parallel. One list request discovers every
+       relevant public repository; the cache keeps repeat visits quiet. */
     state.projects.forEach(loadThumbnail);
-    hydrateAll();
+    discoverRepos();
   }
 
   if (document.readyState === "loading") {
