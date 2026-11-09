@@ -2840,3 +2840,32 @@ body.is-watching .nav > .watch-btn {
 body.is-watching .nav {
   gap: 12px;
 }
+
+/* whale song controls inside the music panel */
+.player__whale {
+  margin-top: 4px;
+}
+
+.player__whalebtn {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--mint);
+  cursor: pointer;
+  transition: opacity 0.2s, color 0.2s;
+}
+
+.player__whalebtn svg { width: 16px; height: 16px; }
+
+.player__whalebtn[aria-pressed="false"] {
+  color: var(--muted);
+  opacity: 0.55;
+}
+
+.player__whale .player__range { flex: 1; min-width: 0; }
+.player__whale:has(.player__whalebtn[aria-pressed="false"]) .player__range { opacity: 0.45; }

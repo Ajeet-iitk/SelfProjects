@@ -13,6 +13,29 @@
   const FILES = ["assets/audio/whale-song.mp3", "assets/audio/whale-call.mp3"];
   const START_AT = 0.3; // scroll progress where the first calls can be heard
 
+  const toggle = document.getElementById("whale-toggle");
+  const slider = document.getElementById("whale-volume");
+  const KEY = "hobby-arcade:whale";
+
+  const read = (k, d) => {
+    try {
+      const v = localStorage.getItem(`${KEY}:${k}`);
+      return v === null ? d : v;
+    } catch {
+      return d;
+    }
+  };
+  const write = (k, v) => {
+    try {
+      localStorage.setItem(`${KEY}:${k}`, v);
+    } catch {
+      /* ignore */
+    }
+  };
+
+  let enabled = read("on", "1") !== "0";
+  let level = Math.min(1, Math.max(0, parseFloat(read("vol", "0.6")) || 0));
+
   const clips = FILES.map((src) => {
     const a = new Audio();
     a.src = src;
@@ -33,11 +56,11 @@
 
   // Whales only sing when the main music is audibly on.
   const musicOn = () => !!bgm && !bgm.paused && !bgm.muted && bgm.volume > 0;
+  const audible = () => enabled && level > 0 && musicOn();
 
   function targetVolume(p) {
-    const base = bgm ? bgm.volume : 0.35;
-    // a little louder the deeper we are, never louder than the music + a bit
-    return Math.min(1, base * (0.9 + p * 0.9));
+    // the whale slider sets the level; it swells a little the deeper we are
+    return Math.min(1, level * (0.7 + p * 0.5));
   }
 
   function fade(a, to, seconds, done) {
@@ -55,7 +78,7 @@
 
   function sing() {
     const p = progress();
-    if (document.hidden || p < START_AT || !musicOn() || playing) return;
+    if (document.hidden || p < START_AT || !audible() || playing) return;
 
     // alternate between the two recordings
     last = (last + 1 + (Math.random() < 0.3 ? 1 : 0)) % clips.length;
@@ -119,6 +142,42 @@
       });
     }
   };
+  function paintControls() {
+    if (toggle) {
+      toggle.setAttribute("aria-pressed", String(enabled));
+      toggle.setAttribute("aria-label", enabled ? "Whale songs on" : "Whale songs off");
+    }
+    if (slider) {
+      slider.value = String(Math.round(level * 100));
+      slider.style.setProperty("--fill", `${Math.round(level * 100)}%`);
+    }
+  }
+
+  if (toggle) {
+    toggle.addEventListener("click", () => {
+      enabled = !enabled;
+      write("on", enabled ? "1" : "0");
+      paintControls();
+      if (!enabled) hush();
+    });
+  }
+
+  if (slider) {
+    slider.addEventListener("input", () => {
+      level = Math.min(1, Math.max(0, Number(slider.value) / 100));
+      write("vol", String(level));
+      if (level > 0 && !enabled) {
+        enabled = true;
+        write("on", "1");
+      }
+      paintControls();
+      if (playing) playing.volume = targetVolume(progress());
+      if (level === 0) hush();
+    });
+  }
+
+  paintControls();
+
   if (bgm) {
     bgm.addEventListener("pause", hush);
     bgm.addEventListener("volumechange", () => {
