@@ -33,7 +33,7 @@
   const pool = Array.from({ length: POOL }, () => {
     const a = new Audio(SRC);
     a.preload = "auto";
-    a.volume = level;
+    a.volume = Math.min(1, level * level);
     return a;
   });
   let next = 0;
@@ -42,6 +42,9 @@
   // iPhones and can only attenuate). 100% plays at double the recording's
   // level, 0% is silent, and it falls back to <audio> if decoding fails.
   const GAIN_AT_FULL = 2;
+  // Loudness is perceived roughly logarithmically, so the slider uses a
+  // squared curve: 10% is clearly quiet, 50% medium, 90% loud.
+  const gainFor = (v) => v * v * GAIN_AT_FULL;
   let actx = null;
   let buffer = null;
   let gainNode = null;
@@ -51,7 +54,7 @@
     if (AC) {
       actx = new AC();
       gainNode = actx.createGain();
-      gainNode.gain.value = level * GAIN_AT_FULL;
+      gainNode.gain.value = gainFor(level);
       gainNode.connect(actx.destination);
       fetch(SRC)
         .then((res) => res.arrayBuffer())
@@ -116,8 +119,8 @@
   if (slider) {
     slider.addEventListener("input", () => {
       level = Math.min(1, Math.max(0, Number(slider.value) / 100));
-      for (const a of pool) a.volume = level;
-      if (gainNode) gainNode.gain.value = level * GAIN_AT_FULL;
+      for (const a of pool) a.volume = Math.min(1, level * level);
+      if (gainNode) gainNode.gain.value = gainFor(level);
       if (level > 0 && !enabled) {
         enabled = true;
         try {
@@ -133,6 +136,8 @@
       }
       paint();
     });
+    // let the visitor hear the new level when they let go of the slider
+    slider.addEventListener("change", drip);
   }
   paint();
 
@@ -146,7 +151,7 @@
         tap = { x: e.clientX, y: e.clientY, at: performance.now() };
         return;
       }
-      if (e.button === 0) drip();
+      if (e.button === 0 && !(e.target.closest && e.target.closest("input[type=range]"))) drip();
     },
     { passive: true }
   );
