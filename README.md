@@ -1,4 +1,8 @@
 # Hobby Arcade — a self-updating project shelf
+**[Open the live site](https://ajeet-iitk.github.io/SelfProjects/)**
+
+![Ajeet Hobby Arcade screenshot](screenshots/website.jpg)
+
 
 A static portfolio page for GitHub hobby projects, wrapped in an interactive underwater
 world. Point it at a GitHub account and it pulls in every relevant public repository
