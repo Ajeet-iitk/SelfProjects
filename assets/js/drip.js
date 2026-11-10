@@ -160,6 +160,10 @@
     "pointerup",
     (e) => {
       if (e.pointerType !== "touch" || !tap) return;
+      if (e.target.closest && e.target.closest("input[type=range]")) {
+        tap = null;
+        return;
+      }
       const t = tap;
       tap = null;
       if (Math.hypot(e.clientX - t.x, e.clientY - t.y) <= 12 && performance.now() - t.at <= 500) drip();
