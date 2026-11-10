@@ -1,15 +1,14 @@
 /* ==========================================================================
    Deep-sea whale sounds
    Two whale recordings play now and then as the page is scrolled down, and
-   more often the deeper you get. They layer over the main soundtrack, work
-   in Marine Watch too, and follow the music player: if the visitor has paused
-   or muted the music, the whales stay quiet as well.
+   more often the deeper you get. They are independent of the main soundtrack
+   (they play even if the music is paused or muted) and work in Marine Watch
+   too. Their own on/off button and volume slider live in the music panel.
    ========================================================================== */
 
 (() => {
   "use strict";
 
-  const bgm = document.getElementById("bgm");
   const FILES = ["assets/audio/whale-song.mp3", "assets/audio/whale-call.mp3"];
   const START_AT = 0.3; // scroll progress where the first calls can be heard
 
@@ -54,9 +53,7 @@
     return Math.min(1, Math.max(0, window.scrollY / max));
   };
 
-  // Whales only sing when the main music is audibly on.
-  const musicOn = () => !!bgm && !bgm.paused && !bgm.muted && bgm.volume > 0;
-  const audible = () => enabled && level > 0 && musicOn();
+  const audible = () => enabled && level > 0;
 
   function targetVolume(p) {
     // the whale slider sets the level; it swells a little the deeper we are
@@ -178,12 +175,6 @@
 
   paintControls();
 
-  if (bgm) {
-    bgm.addEventListener("pause", hush);
-    bgm.addEventListener("volumechange", () => {
-      if (bgm.muted || bgm.volume === 0) hush();
-    });
-  }
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) hush();
   });
