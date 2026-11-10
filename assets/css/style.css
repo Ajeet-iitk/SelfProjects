@@ -2874,3 +2874,6 @@ body.is-watching .nav {
   font: 0.72rem var(--font-mono);
   color: var(--muted);
 }
+
+.player__drip .player__range { flex: 1; min-width: 0; }
+.player__drip:has(.player__whalebtn[aria-pressed="false"]) .player__range { opacity: 0.45; }

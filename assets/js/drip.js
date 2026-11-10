@@ -13,6 +13,15 @@
   const POOL = 4;
 
   const toggle = document.getElementById("drip-toggle");
+  const slider = document.getElementById("drip-volume");
+  const VOL_KEY = "hobby-arcade:drip:vol";
+  let level = 0.55;
+  try {
+    const v = parseFloat(localStorage.getItem(VOL_KEY));
+    if (Number.isFinite(v)) level = Math.min(1, Math.max(0, v));
+  } catch {
+    /* ignore */
+  }
 
   let enabled = true;
   try {
@@ -24,13 +33,13 @@
   const pool = Array.from({ length: POOL }, () => {
     const a = new Audio(SRC);
     a.preload = "auto";
-    a.volume = 0.55;
+    a.volume = level;
     return a;
   });
   let next = 0;
 
   function drip() {
-    if (!enabled) return;
+    if (!enabled || level === 0) return;
     const a = pool[next];
     next = (next + 1) % POOL;
     try {
@@ -46,6 +55,10 @@
     if (!toggle) return;
     toggle.setAttribute("aria-pressed", String(enabled));
     toggle.setAttribute("aria-label", enabled ? "Click sound on" : "Click sound off");
+    if (slider) {
+      slider.value = String(Math.round(level * 100));
+      slider.style.setProperty("--fill", `${Math.round(level * 100)}%`);
+    }
   }
 
   if (toggle) {
@@ -53,6 +66,26 @@
       enabled = !enabled;
       try {
         localStorage.setItem(KEY, enabled ? "1" : "0");
+      } catch {
+        /* ignore */
+      }
+      paint();
+    });
+  }
+  if (slider) {
+    slider.addEventListener("input", () => {
+      level = Math.min(1, Math.max(0, Number(slider.value) / 100));
+      for (const a of pool) a.volume = level;
+      if (level > 0 && !enabled) {
+        enabled = true;
+        try {
+          localStorage.setItem(KEY, "1");
+        } catch {
+          /* ignore */
+        }
+      }
+      try {
+        localStorage.setItem(VOL_KEY, String(level));
       } catch {
         /* ignore */
       }
