@@ -711,6 +711,25 @@
     applyFilters();
   }
 
+  // Keep only the fields the shelf actually uses. A 500-repo list would
+  // otherwise push localStorage's 5 MB quota.
+  function compactRepo(d) {
+    return {
+      name: d.name,
+      description: d.description,
+      homepage: d.homepage,
+      has_pages: d.has_pages,
+      language: d.language,
+      stargazers_count: d.stargazers_count,
+      pushed_at: d.pushed_at,
+      fork: d.fork,
+      archived: d.archived,
+      private: d.private,
+      size: d.size,
+      topics: d.topics,
+    };
+  }
+
   async function discoverRepos() {
     if (discoveryStarted) return;
     discoveryStarted = true;
@@ -759,7 +778,7 @@
       }
 
       if (list.length) {
-        writeCache("list", list);
+        writeCache("list", list.map(compactRepo));
         mergeRepoList(list);
       }
     } catch {

@@ -137,6 +137,12 @@
               </button>
               <input class="player__range player__vol" id="whale-volume" type="range" min="0" max="100" step="1" value="60" aria-label="Whale song volume" />
             </div>
+            <div class="player__row player__drip">
+              <button class="player__whalebtn" id="drip-toggle" type="button" aria-pressed="true" aria-label="Click sound on" title="Water-drip click sound">
+                <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2.5s6 6.4 6 11a6 6 0 0 1-12 0c0-4.6 6-11 6-11Z"/></svg>
+              </button>
+              <span class="player__droplabel">Click sound</span>
+            </div>
           </div>
         </div>
       </nav>
@@ -307,6 +313,11 @@
           <p>Scroll into the deep and whale calls drift over the music now and then, more often the deeper you go. They also play in Marine Watch.</p>
         </article>
         <article class="note explore__item">
+          <span class="note__num">Click</span>
+          <h3>Water drips</h3>
+          <p>Every click or tap plays a little water drip. Switch it off in the music panel if you prefer quiet.</p>
+        </article>
+        <article class="note explore__item">
           <span class="note__num">W</span>
           <h3>Marine Watch</h3>
           <p>Press W or the eye button. The page fades away so you can just watch the ocean. Music keeps playing and you can still scroll.</p>
@@ -434,5 +445,6 @@
   <script src="assets/js/watch.js"></script>
   <script src="assets/js/depth.js"></script>
   <script src="assets/js/whale.js"></script>
+  <script src="assets/js/drip.js"></script>
 </body>
 </html>

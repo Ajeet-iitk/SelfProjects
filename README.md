@@ -26,6 +26,9 @@ The background is a single canvas that renders the whole reef:
 - **Deep-sea visitors** that join as you scroll: a turtle, then sharks, a whale and glowing
   anglerfish. Each species enters at its own scroll depth, and going back up lets them swim
   away again.
+- **Scuba-diver easter eggs** near the top of the page: a welder patching a floating card, a
+  mechanic tightening a drifting gear and a swimmer checking on the fish. They fade out as
+  soon as you scroll away from the hero, so they never follow you down the page.
 - **Cursor ripples** — moving the pointer leaves expanding rings, and clicking makes a
   bigger splash with a small burst of bubbles.
 - **Creatures that notice the pointer** — small fish scatter, sharks turn and trail your
@@ -85,17 +88,19 @@ portfolio/
 
 ## Automatic repository discovery
 
-On load the page requests the account's public repository list once:
+On load the page requests the account's public repository list, 100 per page, and keeps
+paging until GitHub runs out (up to 5 pages / 500 repositories):
 
 ```
-https://api.github.com/users/<owner>/repos?per_page=100&sort=updated
+https://api.github.com/users/<owner>/repos?per_page=100&page=1&sort=updated
 ```
 
 Every repository that is public, not a fork, not archived and not empty is added to the
 shelf automatically, newest-pushed first among the non-featured cards. Curated entries in
-`projects.js` are always kept and take priority; their metadata comes from the same list, so
-a normal visit makes **one** API request rather than one per project. The list is cached in
-`localStorage` for `cacheHours` (12 hours by default).
+`projects.js` are always kept and take priority; their metadata comes from the same list.
+The list is cached in `localStorage` for `cacheHours` (12 hours by default), storing only the
+handful of fields the cards need so even a large account stays well inside the storage quota.
+Paging stops early on a 403/429 rate-limit response and falls back to the cached list.
 
 Discovery deliberately skips:
 
@@ -108,7 +113,7 @@ Configure it in `assets/js/projects.js`:
 
 ```js
 exclude: [],            // e.g. ["old-experiment", "scratch"]
-maxAutoProjects: 60,    // safety cap; curated entries always show
+maxAutoProjects: 300,   // safety cap; curated entries always show
 ```
 
 Thumbnails for discovered repos are lazy-loaded a couple at a time as their cards approach
@@ -242,9 +247,9 @@ processing the folder.
 ## Notes
 
 - **API rate limit:** anonymous GitHub API calls are limited to 60 per hour per visitor IP.
-  The shelf uses a single list request per visit (cached for 12 hours), not one request per
-  repository, so the limit is rarely a concern. Curated metadata is filled from that same
-  list.
+  Discovery uses the paginated list endpoint (100 repositories per request, cached for 12
+  hours), not one request per repository, so the limit is rarely a concern. Curated metadata
+  is filled from that same list.
 - **Caching:** the repository list and thumbnails are cached in `localStorage` / the browser
   respectively; screenshot files are served as normal static assets.
 - **Accessibility:** keyboard navigable, visible focus rings, skip link, lightbox supports

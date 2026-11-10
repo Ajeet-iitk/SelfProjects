@@ -77,6 +77,15 @@
       urchin: "#0b4450",
       anemone: "rgba(255, 120, 190, 0.85)",
       anemoneTip: "rgba(255, 214, 240, 0.95)",
+      diver: "#0a2f3a",
+      diverRim: "rgba(126, 240, 228, 0.45)",
+      diverTank: "#ffc95c",
+      diverTankBand: "rgba(5, 26, 32, 0.85)",
+      diverMask: "rgba(190, 250, 255, 0.95)",
+      diverHose: "rgba(150, 240, 255, 0.45)",
+      spark: "255, 224, 140",
+      diverPanel: "rgba(6, 34, 42, 0.62)",
+      diverPanelLine: "rgba(120, 240, 230, 0.32)",
     },
     light: {
       ray: "255, 255, 255",
@@ -115,6 +124,15 @@
       urchin: "#3a7f8a",
       anemone: "rgba(210, 90, 140, 0.8)",
       anemoneTip: "rgba(255, 225, 240, 0.95)",
+      diver: "#155663",
+      diverRim: "rgba(255, 255, 255, 0.5)",
+      diverTank: "#e9a94a",
+      diverTankBand: "rgba(8, 52, 60, 0.8)",
+      diverMask: "rgba(255, 255, 255, 0.95)",
+      diverHose: "rgba(255, 255, 255, 0.5)",
+      spark: "255, 170, 80",
+      diverPanel: "rgba(236, 252, 252, 0.7)",
+      diverPanelLine: "rgba(20, 110, 120, 0.28)",
     },
   };
 
@@ -136,12 +154,14 @@
   let reefSprite = null;
   let reefH = 0;
   let plankton = [];
+  let divers = [];
 
   let deep = [];
   let deepTimer = 1;
   let food = [];
   let watchLight = 1; // 1 = full daylight, falls toward 0 as Marine Watch dives
   let scrollProgress = 0;
+  let scrollPx = 0;
 
   const pointer = { x: -9999, y: -9999, active: false, at: 0 };
 
@@ -1432,6 +1452,467 @@
     ctx.restore();
   }
 
+  /* ------------------------------------------------------------------ */
+  /* scuba divers — top-of-page easter egg                               */
+  /* ------------------------------------------------------------------ */
+
+  // They work around the hero, "repairing" a floating card and a gear and
+  // herding the fish, then fade away as soon as the visitor scrolls down.
+  function diverFade() {
+    return clamp(1 - scrollPx / 240, 0, 1);
+  }
+
+  function buildDivers() {
+    if (!W || !H) return;
+
+    const title = document.querySelector(".hero__title");
+    const stats = document.querySelector(".stats");
+    const tr = title ? title.getBoundingClientRect() : null;
+    const sr = stats ? stats.getBoundingClientRect() : null;
+    const mobile = W < 640;
+
+    const anchors = [];
+
+    // A welder just past the end of the headline, patching a floating card.
+    anchors.push({
+      ax: clamp((tr ? tr.right : W * 0.78) + (mobile ? 20 : 42), 70, W - 44),
+      ay: mobile
+        ? clamp((tr ? tr.bottom : H * 0.36) + 12, H * 0.2, H * 0.56)
+        : clamp((tr ? tr.top + tr.height * 0.42 : H * 0.32), H * 0.18, H * 0.56),
+      dir: -1,
+      baseDir: -1,
+      scale: mobile ? 0.72 : 0.92,
+      tool: "weld",
+      prop: "panel",
+    });
+
+    // A mechanic near the stats, tightening a floating gear. On narrower
+    // windows the stats sit too close to the headline, so keep it to one
+    // welded card there and let the swimmer carry the scene.
+    if (W >= 900) {
+      anchors.push({
+        ax: clamp(W * 0.72, 240, W - 140),
+        ay: clamp(sr ? sr.top - 76 : H * 0.62, H * 0.44, H * 0.72),
+        dir: -1,
+        baseDir: -1,
+        scale: 0.8,
+        tool: "wrench",
+        prop: "gear",
+      });
+    }
+
+    // A free swimmer that checks on the fish drifting through the open water
+    // above the headline, where there is room to be seen.
+    anchors.push({
+      ax: clamp(W * (mobile ? 0.78 : 0.55), 70, W - 70),
+      ay: clamp(H * (mobile ? 0.14 : 0.13), H * 0.1, H * 0.24),
+      dir: 1,
+      baseDir: 1,
+      scale: mobile ? 0.6 : 0.7,
+      tool: "wrench",
+      prop: null,
+      roam: true,
+    });
+
+    divers = anchors.map((a) => ({
+      ...a,
+      x: a.ax,
+      y: a.ay,
+      phase: rand(0, TAU),
+      sparks: [],
+      bubbles: [],
+      sparkTimer: rand(0.3, 1.6),
+      bubbleTimer: rand(0.5, 1.8),
+    }));
+  }
+
+  function spawnDiverSparks(d) {
+    const s = d.scale;
+    const tx = d.x + d.dir * 29.5 * s;
+    const ty = d.y + 4.5 * s;
+    const n = d.prop ? 8 : 5;
+
+    for (let i = 0; i < n; i += 1) {
+      d.sparks.push({
+        x: tx + rand(-2, 2),
+        y: ty + rand(-2, 2),
+        vx: rand(-28, 30),
+        vy: rand(-34, 8),
+        life: rand(0.24, 0.55),
+        age: 0,
+      });
+    }
+  }
+
+  function spawnDiverBubble(d) {
+    const s = d.scale;
+    d.bubbles.push({
+      x: d.x + d.dir * 22 * s + rand(-2, 2),
+      y: d.y - 6 * s,
+      r: rand(1.1, 2.5),
+      vy: rand(14, 26),
+      phase: rand(0, TAU),
+    });
+    if (d.bubbles.length > 9) d.bubbles.shift();
+  }
+
+  function updateDivers(dt, t) {
+    if (diverFade() <= 0.01) return;
+
+    for (const d of divers) {
+      let tx = d.ax;
+      let ty = d.ay;
+
+      if (d.prop) {
+        // Anchored workers stay with the thing they are repairing; the bob
+        // in drawDiver keeps them alive without drifting off the prop.
+        d.dir = d.baseDir;
+      } else {
+        let nearest = null;
+        let best = 170;
+
+        for (const f of fish) {
+          const dist = Math.hypot(f.x - d.x, f.y - d.y);
+          if (dist < best) {
+            best = dist;
+            nearest = f;
+          }
+        }
+
+        if (d.roam) {
+          tx = clamp(d.ax + Math.sin(t * 0.18 + d.phase) * W * 0.16, 60, W - 60);
+          ty = clamp(d.ay + Math.sin(t * 0.42 + d.phase * 1.7) * 30, H * 0.09, H * 0.24);
+        }
+
+        if (nearest) {
+          // Drift toward the fish, then shoo it along.
+          tx = clamp(d.ax + (nearest.x - d.ax) * 0.3, d.ax - 80, d.ax + 80);
+          ty = clamp(nearest.y, H * 0.09, H * 0.27);
+
+          if (best < 80) {
+            const dx = nearest.x - d.x;
+            const dy = nearest.y - d.y;
+            const dist = Math.max(0.001, Math.hypot(dx, dy));
+            const k = (1 - dist / 80) * 280;
+            nearest.vx += (dx / dist) * k * dt;
+            nearest.vy += (dy / dist) * k * dt;
+          }
+
+          d.dir = nearest.x >= d.x ? 1 : -1;
+        } else {
+          d.dir = d.baseDir;
+        }
+      }
+
+      d.x += (tx - d.x) * Math.min(1, dt * 1.1);
+      d.y += (ty - d.y) * Math.min(1, dt * 1.1);
+
+      d.sparkTimer -= dt;
+      if (d.sparkTimer <= 0) {
+        spawnDiverSparks(d);
+        d.sparkTimer = rand(1.4, 2.9);
+      }
+
+      d.bubbleTimer -= dt;
+      if (d.bubbleTimer <= 0) {
+        spawnDiverBubble(d);
+        d.bubbleTimer = rand(0.9, 2.1);
+      }
+
+      for (let i = d.sparks.length - 1; i >= 0; i -= 1) {
+        const p = d.sparks[i];
+        p.age += dt;
+        if (p.age >= p.life) {
+          d.sparks.splice(i, 1);
+          continue;
+        }
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        p.vy += 26 * dt;
+      }
+
+      for (let i = d.bubbles.length - 1; i >= 0; i -= 1) {
+        const b = d.bubbles[i];
+        b.y -= b.vy * dt;
+        b.x += Math.sin(t * 2.1 + b.phase) * 5 * dt;
+        if (b.y < -10) d.bubbles.splice(i, 1);
+      }
+    }
+  }
+
+  function drawDiverPanel(d, t, alpha) {
+    const s = d.scale;
+    const w = 62 * s;
+    const h = 44 * s;
+    const x = d.x - 30 * s - w;
+    const y = d.y + 3 * s - h / 2 + Math.sin(t * 0.85 + d.phase) * 2;
+
+    ctx.save();
+    ctx.globalAlpha = alpha * 0.95;
+    ctx.translate(x, y);
+    ctx.rotate(-0.04 + Math.sin(t * 0.5 + d.phase) * 0.02);
+
+    ctx.fillStyle = P.diverPanel;
+    ctx.strokeStyle = P.diverPanelLine;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.roundRect(0, 0, w, h, 5 * s);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = theme === "dark" ? "rgba(20, 72, 82, 0.55)" : "rgba(190, 235, 240, 0.7)";
+    ctx.beginPath();
+    ctx.roundRect(6 * s, 8 * s, 22 * s, h - 16 * s, 2.5 * s);
+    ctx.fill();
+
+    ctx.fillStyle = `rgba(${P.spark}, 0.85)`;
+    ctx.beginPath();
+    ctx.arc(w - 10 * s, 8 * s, 1.7 * s, 0, TAU);
+    ctx.fill();
+
+    ctx.strokeStyle = P.diverPanelLine;
+    ctx.lineWidth = 1.4 * s;
+    for (let i = 0; i < 3; i += 1) {
+      ctx.beginPath();
+      ctx.moveTo(34 * s, (13 + i * 6) * s);
+      ctx.lineTo((i === 2 ? 48 : 56) * s, (13 + i * 6) * s);
+      ctx.stroke();
+    }
+
+    ctx.fillStyle = P.diverRim;
+    for (const [bx, by] of [[6, 6], [w - 6, 6], [6, h - 6]]) {
+      ctx.beginPath();
+      ctx.arc(bx * s, by * s, 1.2 * s, 0, TAU);
+      ctx.fill();
+    }
+
+    ctx.restore();
+
+    if (theme === "dark") {
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      const gx = x + w;
+      const gy = y + h * 0.5;
+      const g = ctx.createRadialGradient(gx, gy, 0, gx, gy, 16 * s);
+      g.addColorStop(0, `rgba(${P.spark}, ${0.22 * alpha})`);
+      g.addColorStop(1, `rgba(${P.spark}, 0)`);
+      ctx.fillStyle = g;
+      ctx.fillRect(gx - 20 * s, gy - 20 * s, 40 * s, 40 * s);
+      ctx.restore();
+    }
+  }
+
+  function drawDiverGear(d, t, alpha) {
+    const s = d.scale;
+    const r = 12 * s;
+
+    ctx.save();
+    ctx.translate(d.x - 37 * s, d.y + 3 * s);
+    ctx.rotate(t * 0.35 + d.phase);
+    ctx.globalAlpha = alpha * 0.8;
+
+    ctx.fillStyle = P.diverRim;
+    for (let i = 0; i < 8; i += 1) {
+      ctx.rotate(TAU / 8);
+      ctx.fillRect(r * 0.82, -2.2 * s, r * 0.34, 4.4 * s);
+    }
+
+    ctx.beginPath();
+    ctx.arc(0, 0, r * 0.82, 0, TAU);
+    ctx.fill();
+
+    ctx.fillStyle = P.diverPanel;
+    ctx.beginPath();
+    ctx.arc(0, 0, r * 0.3, 0, TAU);
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  function drawDiverTool(d, t) {
+    ctx.strokeStyle = "rgba(220, 240, 245, 0.9)";
+    ctx.lineWidth = 2;
+    ctx.lineCap = "round";
+
+    if (d.tool === "weld") {
+      ctx.beginPath();
+      ctx.moveTo(22, 6.5);
+      ctx.lineTo(28, 5.2);
+      ctx.stroke();
+
+      const pulse = 0.7 + 0.3 * Math.sin(t * 11 + d.phase);
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      ctx.fillStyle = `rgba(${P.spark}, ${0.75 * pulse})`;
+      ctx.beginPath();
+      ctx.arc(29.5, 4.8, 2.4 * pulse, 0, TAU);
+      ctx.fill();
+      ctx.restore();
+    } else {
+      ctx.beginPath();
+      ctx.moveTo(21, 7);
+      ctx.lineTo(29, 3.4);
+      ctx.stroke();
+
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      ctx.moveTo(29, 3.4);
+      ctx.lineTo(32, 1.8);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(29, 3.4);
+      ctx.lineTo(31.5, 5);
+      ctx.stroke();
+    }
+  }
+
+  function drawDiver(d, t, alpha) {
+    const s = d.scale;
+    const bob = Math.sin(t * 0.9 + d.phase) * 2.4;
+    const kick = Math.sin(t * 3.3 + d.phase);
+
+    ctx.save();
+    ctx.translate(d.x, d.y + bob);
+    ctx.rotate(Math.sin(t * 0.6 + d.phase) * 0.04);
+    ctx.scale(d.dir * s, s);
+    ctx.globalAlpha = alpha;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+
+    // legs and fins
+    ctx.strokeStyle = P.diver;
+    ctx.fillStyle = P.diver;
+    ctx.lineWidth = 4;
+    for (const side of [-1, 1]) {
+      const lift = kick * 3.5 * side;
+      ctx.beginPath();
+      ctx.moveTo(-10, 4 + side * 2);
+      ctx.quadraticCurveTo(-20, 7 + side * 4, -29, 9 + side * 6 + lift);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(-29, 9 + side * 6 + lift);
+      ctx.lineTo(-35, 5 + side * 6 + lift);
+      ctx.lineTo(-34, 12 + side * 6 + lift);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    // tank
+    ctx.save();
+    ctx.rotate(-0.2);
+    ctx.fillStyle = P.diverTank;
+    ctx.beginPath();
+    ctx.roundRect(-18, -17, 27, 11, 5);
+    ctx.fill();
+    ctx.fillStyle = P.diverTankBand;
+    ctx.fillRect(-10, -17, 4.5, 11);
+    ctx.fillStyle = P.diverRim;
+    ctx.beginPath();
+    ctx.arc(-18, -13, 2, 0, TAU);
+    ctx.fill();
+    ctx.restore();
+
+    // body
+    ctx.fillStyle = P.diver;
+    ctx.beginPath();
+    ctx.ellipse(2, 0, 15.5, 8.4, 0.07, 0, TAU);
+    ctx.fill();
+    ctx.strokeStyle = P.diverRim;
+    ctx.lineWidth = 1.1;
+    ctx.beginPath();
+    ctx.ellipse(2, 0, 14.6, 7.7, 0.07, Math.PI * 1.08, Math.PI * 1.58);
+    ctx.stroke();
+
+    // air hose
+    ctx.strokeStyle = P.diverHose;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(-2, -9);
+    ctx.quadraticCurveTo(8, -18, 18, -7);
+    ctx.stroke();
+
+    // head and mask
+    ctx.fillStyle = P.diver;
+    ctx.beginPath();
+    ctx.arc(18, -2, 6.8, 0, TAU);
+    ctx.fill();
+
+    ctx.fillStyle = P.diverMask;
+    ctx.beginPath();
+    ctx.ellipse(22, -3.6, 5.1, 3.7, -0.12, 0, TAU);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(2, 20, 26, 0.45)";
+    ctx.lineWidth = 0.9;
+    ctx.beginPath();
+    ctx.ellipse(22, -3.6, 5.1, 3.7, -0.12, 0, TAU);
+    ctx.stroke();
+
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.85)";
+    ctx.lineWidth = 0.9;
+    ctx.beginPath();
+    ctx.moveTo(20, -5.4);
+    ctx.lineTo(23.6, -4.3);
+    ctx.stroke();
+
+    // arms
+    ctx.strokeStyle = P.diver;
+    ctx.lineWidth = 3.2;
+    ctx.beginPath();
+    ctx.moveTo(9, 4);
+    ctx.quadraticCurveTo(17, 8, 23, 5.5);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(4, 5);
+    ctx.quadraticCurveTo(9, 10.5, 14, 9);
+    ctx.stroke();
+
+    drawDiverTool(d, t);
+
+    ctx.restore();
+  }
+
+  function drawDiverFX(d, alpha) {
+    if (d.sparks.length) {
+      ctx.save();
+      if (theme === "dark") ctx.globalCompositeOperation = "lighter";
+
+      for (const p of d.sparks) {
+        const k = 1 - p.age / p.life;
+        ctx.strokeStyle = `rgba(${P.spark}, ${0.85 * k})`;
+        ctx.lineWidth = 1.1;
+        ctx.beginPath();
+        ctx.moveTo(p.x, p.y);
+        ctx.lineTo(p.x - p.vx * 0.035, p.y - p.vy * 0.035);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    for (const b of d.bubbles) {
+      ctx.globalAlpha = alpha * 0.5;
+      ctx.strokeStyle = `rgba(${P.bubble}, 0.6)`;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, b.r, 0, TAU);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function drawDivers(t) {
+    const fade = diverFade();
+    if (fade <= 0.01) return;
+
+    for (const d of divers) {
+      if (d.prop === "panel") drawDiverPanel(d, t, fade);
+      else if (d.prop === "gear") drawDiverGear(d, t, fade);
+    }
+
+    for (const d of divers) drawDiver(d, t, fade);
+    for (const d of divers) drawDiverFX(d, fade);
+  }
+
   function drawBubbles() {
     for (const b of bubbles) {
       ctx.globalAlpha = b.alpha;
@@ -1516,7 +1997,8 @@
 
   function measureScroll() {
     const max = Math.max(1, document.documentElement.scrollHeight - H);
-    scrollProgress = clamp(window.scrollY / max, 0, 1);
+    scrollPx = window.scrollY || 0;
+    scrollProgress = clamp(scrollPx / max, 0, 1);
   }
 
   function resize() {
@@ -1534,6 +2016,7 @@
 
     buildFish();
     buildReef();
+    buildDivers();
 
     // A big width change means a new layout: let the deep visitors respawn.
     if (Math.abs(W - prevW) > 80) deep = [];
@@ -2021,6 +2504,7 @@
     }
 
     updateDeep(dt, t);
+    updateDivers(dt, t);
 
     for (const j of jellies) {
       j.y -= j.speed * dt;
@@ -2174,6 +2658,7 @@
     drawFood();
     drawRod(t);
     drawTreats(t);
+    drawDivers(t);
 
     for (const c of deep) if (c.z >= 0.75) drawDeep(c, t);
 
@@ -2419,5 +2904,10 @@
   renderStatic();
   start();
   setTimeout(measureScroll, 500);
-  window.addEventListener("load", () => setTimeout(measureScroll, 250));
+  window.addEventListener("load", () => {
+    setTimeout(measureScroll, 250);
+    // Fonts and the rendered shelf can move the hero, so re-anchor the
+    // divers once the layout has settled.
+    setTimeout(buildDivers, 600);
+  });
 })();

@@ -2869,3 +2869,8 @@ body.is-watching .nav {
 
 .player__whale .player__range { flex: 1; min-width: 0; }
 .player__whale:has(.player__whalebtn[aria-pressed="false"]) .player__range { opacity: 0.45; }
+
+.player__droplabel {
+  font: 0.72rem var(--font-mono);
+  color: var(--muted);
+}

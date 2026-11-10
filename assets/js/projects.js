@@ -41,7 +41,7 @@ window.PORTFOLIO = {
   exclude: [],
 
   /* Safety cap for automatic discovery (curated entries are always shown). */
-  maxAutoProjects: 60,
+  maxAutoProjects: 300,
 
   projects: [
     {
