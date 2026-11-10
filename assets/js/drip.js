@@ -38,8 +38,49 @@
   });
   let next = 0;
 
+  // Web Audio gives a true 0-100% range (HTML audio volume is ignored on
+  // iPhones and can only attenuate). 100% plays at double the recording's
+  // level, 0% is silent, and it falls back to <audio> if decoding fails.
+  const GAIN_AT_FULL = 2;
+  let actx = null;
+  let buffer = null;
+  let gainNode = null;
+
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (AC) {
+      actx = new AC();
+      gainNode = actx.createGain();
+      gainNode.gain.value = level * GAIN_AT_FULL;
+      gainNode.connect(actx.destination);
+      fetch(SRC)
+        .then((res) => res.arrayBuffer())
+        .then((data) => new Promise((ok, fail) => actx.decodeAudioData(data, ok, fail)))
+        .then((buf) => {
+          buffer = buf;
+        })
+        .catch(() => {
+          buffer = null;
+        });
+    }
+  } catch {
+    actx = null;
+  }
+
+  function dripWeb() {
+    if (actx.state === "suspended") actx.resume();
+    const src = actx.createBufferSource();
+    src.buffer = buffer;
+    src.connect(gainNode);
+    src.start(0);
+  }
+
   function drip() {
     if (!enabled || level === 0) return;
+    if (actx && buffer && gainNode) {
+      dripWeb();
+      return;
+    }
     const a = pool[next];
     next = (next + 1) % POOL;
     try {
@@ -76,6 +117,7 @@
     slider.addEventListener("input", () => {
       level = Math.min(1, Math.max(0, Number(slider.value) / 100));
       for (const a of pool) a.volume = level;
+      if (gainNode) gainNode.gain.value = level * GAIN_AT_FULL;
       if (level > 0 && !enabled) {
         enabled = true;
         try {
