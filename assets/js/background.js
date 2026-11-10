@@ -2690,14 +2690,33 @@
     for (const j of jellies) drawJelly(j, t);
   }
 
+  let errorCount = 0;
+
   function frame(now) {
-    const dt = Math.min(64, now - last) / 1000;
+    // Always queue the next frame first. One bad frame must never end the
+    // animation for good, which is what an uncaught error used to do.
+    raf = requestAnimationFrame(frame);
+
+    const dt = Math.min(64, Math.max(0, now - last)) / 1000;
     last = now;
     const t = now / 1000;
 
-    update(dt, t);
-    paint(t);
-    raf = requestAnimationFrame(frame);
+    try {
+      update(dt, t);
+    } catch (err) {
+      if (errorCount++ < 3) console.warn("background update error", err);
+    }
+
+    try {
+      // Reset canvas state in case an earlier failed frame left it unbalanced.
+      ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+      ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = "source-over";
+      ctx.shadowBlur = 0;
+      paint(t);
+    } catch (err) {
+      if (errorCount++ < 3) console.warn("background paint error", err);
+    }
   }
 
   function renderStatic() {
