@@ -16,7 +16,8 @@ No framework. No build step. No dependencies. Plain HTML, CSS and JS, ready for 
 
 ## The underwater scene
 
-The background is a single canvas that renders the whole reef:
+The scene is drawn on two canvases: the main background reef, plus a transparent
+foreground layer that lets a diver occasionally swim in front of the hero copy.
 
 - **God rays, marine snow and rising bubbles** drifting through the water.
 - **Bioluminescent plankton** that drift on the current and scatter away from the pointer,
@@ -27,8 +28,12 @@ The background is a single canvas that renders the whole reef:
   anglerfish. Each species enters at its own scroll depth, and going back up lets them swim
   away again.
 - **Scuba-diver easter eggs** near the top of the page: a welder patching a floating card, a
-  mechanic tightening a drifting gear and a swimmer checking on the fish. They fade out as
-  soon as you scroll away from the hero, so they never follow you down the page.
+  mechanic tightening a drifting gear and a swimmer checking on the fish. A fourth diver
+  occasionally crosses in front of the hero copy, torch first. Scroll away from the top and
+  the whole crew kicks upward and disappears; in night mode their dive torches switch on.
+- **Marine Watch documentary** — in Marine Watch the divers become a film crew: a REC frame
+  and field-notes lower third track the timecode, depth and live fish count, while one diver
+  drops food for the school.
 - **Cursor ripples** — moving the pointer leaves expanding rings, and clicking makes a
   bigger splash with a small burst of bubbles.
 - **Creatures that notice the pointer** — small fish scatter, sharks turn and trail your
@@ -57,6 +62,14 @@ Music is on by default. Browsers block audible autoplay before the first interac
 the initial attempt is refused the player starts automatically on your first click, tap or
 keypress anywhere outside the player controls.
 
+## Marine Watch
+
+Press `W` (or the eye button) to fade the site away and just watch the ocean. The music keeps
+playing, the page still scrolls, and the diving crew becomes a documentary unit. A viewfinder
+frame and a REC lower third show a running timecode, the current depth and zone, the live fish
+count and rotating field notes about the reef and the deep. If you leave Marine Watch at the
+surface, the swimmer also releases food so the school gathers in front of the camera.
+
 ---
 
 ## Files
@@ -75,6 +88,8 @@ portfolio/
 │       ├── app.js              rendering, GitHub discovery, filters, lightbox
 │       ├── background.js       underwater canvas scene, creatures + ripples
 │       ├── player.js           navbar music player
+│       ├── watch.js            Marine Watch mode, fishing HUD + documentary
+│       ├── depth.js            depth meter / ocean zones
 │       ├── float.js            floating interface (bob + pointer reactions)
 │       └── theme.js            reef / deep-sea theme toggle
 ├── thumbnails/                 ← drop screenshots here

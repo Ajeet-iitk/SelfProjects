@@ -358,6 +358,24 @@ code {
   height: 100%;
 }
 
+/* A second, transparent canvas above the page for the occasional diver that
+   swims in front of the copy. It never catches pointer events. */
+.diver-front {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .diver-front {
+    display: none;
+  }
+}
+
 .ambient__grid {
   position: absolute;
   inset: -2px;
@@ -2659,6 +2677,105 @@ body.is-watching .watch-hud {
 }
 
 .watch-hud__msg:empty { display: none; }
+
+/* ---------- marine watch: documentary overlay ---------- */
+.watch-film {
+  position: fixed;
+  inset: 12px;
+  z-index: 75;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.9s ease 0.5s;
+}
+
+body.is-watching .watch-film {
+  opacity: 1;
+}
+
+.watch-film__corner {
+  position: absolute;
+  width: 26px;
+  height: 26px;
+  border: 1px solid rgba(88, 245, 200, 0.32);
+}
+
+.watch-film__corner--tl { top: 0; left: 0; border-right: 0; border-bottom: 0; }
+.watch-film__corner--tr { top: 0; right: 0; border-left: 0; border-bottom: 0; }
+.watch-film__corner--bl { bottom: 0; left: 0; border-right: 0; border-top: 0; }
+.watch-film__corner--br { bottom: 0; right: 0; border-left: 0; border-top: 0; }
+
+.watch-film__panel {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  max-width: min(390px, 78vw);
+  padding: 12px 16px 13px;
+  border-left: 2px solid rgba(88, 245, 200, 0.75);
+  border-radius: 0 10px 10px 0;
+  background: rgba(3, 17, 24, 0.5);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  color: #d9fff2;
+  font-family: var(--font-mono);
+}
+
+.watch-film__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 5px;
+  font-size: 0.62rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(191, 238, 221, 0.8);
+}
+
+.watch-film__rec {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #ff9d8a;
+  font-weight: 600;
+}
+
+.watch-film__rec i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ff6f61;
+  box-shadow: 0 0 8px rgba(255, 111, 97, 0.8);
+  animation: film-rec 1.8s ease-in-out infinite;
+}
+
+.watch-film__sep { opacity: 0.35; }
+
+.watch-film__caption {
+  margin: 0;
+  font-size: 0.74rem;
+  line-height: 1.55;
+  color: rgba(229, 255, 248, 0.92);
+}
+
+@keyframes film-rec {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}
+
+@media (max-width: 520px) {
+  .watch-film__panel {
+    top: 64px;
+    left: 8px;
+    max-width: min(330px, calc(100vw - 86px));
+    padding: 9px 12px 10px;
+  }
+  .watch-film__head { font-size: 0.56rem; gap: 6px; }
+  .watch-film__caption { font-size: 0.68rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .watch-film__rec i { animation: none; }
+}
 
 @media (max-width: 520px) {
   .watch-hud__tools button { padding: 7px 9px; font-size: 0.68rem; }

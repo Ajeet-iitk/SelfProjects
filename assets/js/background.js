@@ -18,8 +18,12 @@
   const canvas = document.getElementById("bg-canvas");
   if (!canvas) return;
 
-  const ctx = canvas.getContext("2d", { alpha: true });
+  let ctx = canvas.getContext("2d", { alpha: true });
   if (!ctx) return;
+
+  // A transparent foreground canvas lets one diver pass in front of the copy.
+  const frontCanvas = document.getElementById("diver-front");
+  const frontCtx = frontCanvas ? frontCanvas.getContext("2d", { alpha: true }) : null;
 
   const root = document.documentElement;
   const reduce = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -83,6 +87,7 @@
       diverTankBand: "rgba(5, 26, 32, 0.85)",
       diverMask: "rgba(190, 250, 255, 0.95)",
       diverHose: "rgba(150, 240, 255, 0.45)",
+      torch: "255, 232, 170",
       spark: "255, 224, 140",
       diverPanel: "rgba(6, 34, 42, 0.62)",
       diverPanelLine: "rgba(120, 240, 230, 0.32)",
@@ -130,6 +135,7 @@
       diverTankBand: "rgba(8, 52, 60, 0.8)",
       diverMask: "rgba(255, 255, 255, 0.95)",
       diverHose: "rgba(255, 255, 255, 0.5)",
+      torch: "255, 206, 120",
       spark: "255, 170, 80",
       diverPanel: "rgba(236, 252, 252, 0.7)",
       diverPanelLine: "rgba(20, 110, 120, 0.28)",
@@ -155,6 +161,8 @@
   let reefH = 0;
   let plankton = [];
   let divers = [];
+  let diversBand = null; // where the hero copy sits, for the foreground swimmer
+  let frontDiver = null;
 
   let deep = [];
   let deepTimer = 1;
@@ -162,6 +170,7 @@
   let watchLight = 1; // 1 = full daylight, falls toward 0 as Marine Watch dives
   let scrollProgress = 0;
   let scrollPx = 0;
+  let docStatsTimer = 0;
 
   const pointer = { x: -9999, y: -9999, active: false, at: 0 };
 
@@ -1456,10 +1465,24 @@
   /* scuba divers — top-of-page easter egg                               */
   /* ------------------------------------------------------------------ */
 
-  // They work around the hero, "repairing" a floating card and a gear and
-  // herding the fish, then fade away as soon as the visitor scrolls down.
-  function diverFade() {
-    return clamp(1 - scrollPx / 240, 0, 1);
+  // They work around the hero, repairing a floating card and a gear and
+  // herding the fish, then kick upward and vanish once the visitor scrolls
+  // past the top of the page.
+  const DIVER_EXIT_START = 220;
+  const DIVER_EXIT_SPAN = 280;
+
+  function diverExit() {
+    return clamp((scrollPx - DIVER_EXIT_START) / DIVER_EXIT_SPAN, 0, 1);
+  }
+
+  function diverAlpha() {
+    const e = diverExit();
+    return clamp(1 - (e - 0.72) / 0.28, 0, 1);
+  }
+
+  function diverRise() {
+    const e = diverExit();
+    return e * e * (3 - 2 * e);
   }
 
   function buildDivers() {
@@ -1523,7 +1546,38 @@
       bubbles: [],
       sparkTimer: rand(0.3, 1.6),
       bubbleTimer: rand(0.5, 1.8),
+      feedTimer: rand(2.5, 5),
     }));
+
+    // The foreground swimmer crosses the hero copy now and then. It uses the
+    // same art but lives on the transparent canvas above the page.
+    diversBand = {
+      y: clamp(
+        tr ? tr.top + tr.height * (mobile ? 0.34 : 0.38) : H * 0.34,
+        H * 0.2,
+        H * 0.52
+      ),
+    };
+
+    if (!frontDiver) {
+      frontDiver = {
+        active: false,
+        timer: rand(7, 12),
+        age: 0,
+        dur: 8.5,
+        dir: 1,
+        x: 0,
+        y: 0,
+        scale: mobile ? 0.56 : 0.64,
+        phase: rand(0, TAU),
+        tool: "camera",
+        prop: null,
+        torch: true,
+        sparks: [],
+        bubbles: [],
+      };
+    }
+    frontDiver.scale = mobile ? 0.56 : 0.64;
   }
 
   function spawnDiverSparks(d) {
@@ -1557,7 +1611,10 @@
   }
 
   function updateDivers(dt, t) {
-    if (diverFade() <= 0.01) return;
+    if (diverExit() >= 0.999) return;
+
+    const rise = diverRise();
+    const watchingNow = watching();
 
     for (const d of divers) {
       let tx = d.ax;
@@ -1568,6 +1625,8 @@
         // in drawDiver keeps them alive without drifting off the prop.
         d.dir = d.baseDir;
       } else {
+        d.tool = watchingNow ? "camera" : "wrench";
+
         let nearest = null;
         let best = 170;
 
@@ -1585,11 +1644,12 @@
         }
 
         if (nearest) {
-          // Drift toward the fish, then shoo it along.
+          // Drift toward the fish. In normal mode the swimmer shoos them
+          // along; in Marine Watch it lets them gather for the camera.
           tx = clamp(d.ax + (nearest.x - d.ax) * 0.3, d.ax - 80, d.ax + 80);
-          ty = clamp(nearest.y, H * 0.09, H * 0.27);
+          ty = clamp(nearest.y, H * 0.09, H * 0.3);
 
-          if (best < 80) {
+          if (best < 80 && !watchingNow) {
             const dx = nearest.x - d.x;
             const dy = nearest.y - d.y;
             const dist = Math.max(0.001, Math.hypot(dx, dy));
@@ -1602,7 +1662,28 @@
         } else {
           d.dir = d.baseDir;
         }
+
+        // Marine Watch: the reef crew drops food for the school.
+        if (watchingNow) {
+          d.feedTimer -= dt;
+          if (d.feedTimer <= 0) {
+            if (food.length < 14 && !reduce.matches) {
+              dropFood(d.x + d.dir * 14, d.y + 8);
+              if (!marine.crewFed) {
+                marine.crewFed = true;
+                emitMarine("The reef crew is feeding the school. Keep the documentary rolling.");
+              }
+            }
+            d.feedTimer = rand(5.5, 8.5);
+          }
+        } else {
+          d.feedTimer = rand(3, 6);
+        }
       }
+
+      // Scrolling away from the top makes the whole crew kick upwards and
+      // leave. Scrolling back down brings them back.
+      ty -= rise * (d.ay + 160);
 
       d.x += (tx - d.x) * Math.min(1, dt * 1.1);
       d.y += (ty - d.y) * Math.min(1, dt * 1.1);
@@ -1637,6 +1718,101 @@
         b.x += Math.sin(t * 2.1 + b.phase) * 5 * dt;
         if (b.y < -10) d.bubbles.splice(i, 1);
       }
+    }
+  }
+
+  function updateFrontDiver(dt, t) {
+    if (!frontDiver || reduce.matches) return;
+
+    const exit = diverExit();
+    if (exit > 0.9) {
+      frontDiver.active = false;
+      frontDiver.age = 0;
+      frontDiver.timer = rand(6, 10);
+      return;
+    }
+
+    if (!frontDiver.active) {
+      if (scrollPx > 80) return;
+      frontDiver.timer -= dt;
+      if (frontDiver.timer > 0) return;
+
+      frontDiver.active = true;
+      frontDiver.age = 0;
+      frontDiver.dir = Math.random() < 0.5 ? 1 : -1;
+      const title = document.querySelector(".hero__title");
+      const tr = title ? title.getBoundingClientRect() : null;
+      const baseY = tr
+        ? clamp(tr.top + tr.height * 0.38, H * 0.2, H * 0.52)
+        : diversBand
+        ? diversBand.y
+        : H * 0.34;
+      frontDiver.baseY = baseY + rand(-14, 14);
+      frontDiver.x = frontDiver.dir > 0 ? -90 : W + 90;
+      frontDiver.y = frontDiver.baseY;
+      frontDiver.bubbles = [];
+      frontDiver.tool = watching() ? "camera" : "wrench";
+      frontDiver.bubbleTimer = rand(0.4, 1.2);
+      return;
+    }
+
+    frontDiver.age += dt;
+    const p = clamp(frontDiver.age / frontDiver.dur, 0, 1);
+    const ease = p * p * (3 - 2 * p);
+    const start = frontDiver.dir > 0 ? -90 : W + 90;
+    const end = frontDiver.dir > 0 ? W + 90 : -90;
+
+    frontDiver.x = start + (end - start) * ease;
+    frontDiver.y =
+      frontDiver.baseY +
+      Math.sin(p * Math.PI * 2 + frontDiver.phase) * 9 -
+      diverRise() * (frontDiver.baseY + 160);
+    frontDiver.tool = watching() ? "camera" : "wrench";
+
+    frontDiver.bubbleTimer -= dt;
+    if (frontDiver.bubbleTimer <= 0) {
+      spawnDiverBubble(frontDiver);
+      frontDiver.bubbleTimer = rand(1.1, 2.2);
+    }
+
+    for (let i = frontDiver.bubbles.length - 1; i >= 0; i -= 1) {
+      const b = frontDiver.bubbles[i];
+      b.y -= b.vy * dt;
+      b.x += Math.sin(t * 2.1 + b.phase) * 5 * dt;
+      if (b.y < -10) frontDiver.bubbles.splice(i, 1);
+    }
+
+    if (p >= 1) {
+      frontDiver.active = false;
+      frontDiver.age = 0;
+      frontDiver.timer = rand(watching() ? 12 : 17, watching() ? 19 : 27);
+    }
+  }
+
+  function clearFrontDiver() {
+    if (!frontCtx) return;
+    frontCtx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    frontCtx.clearRect(0, 0, W, H);
+  }
+
+  function drawFrontDiver(t) {
+    if (!frontCtx) return;
+    clearFrontDiver();
+    if (!frontDiver || !frontDiver.active) return;
+
+    const alpha = clamp(1 - diverRise(), 0, 1);
+    if (alpha <= 0.01) return;
+
+    const prev = ctx;
+    ctx = frontCtx;
+    try {
+      ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+      ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = "source-over";
+      drawDiver(frontDiver, t, alpha);
+      drawDiverFX(frontDiver, alpha);
+    } finally {
+      ctx = prev;
     }
   }
 
@@ -1729,7 +1905,69 @@
     ctx.restore();
   }
 
+  function drawDiverTorch(d, t, alpha) {
+    const flick = 0.82 + 0.18 * Math.sin(t * 7.3 + d.phase) + 0.06 * Math.sin(t * 19 + d.phase * 2);
+    const reach = 158;
+
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    ctx.globalAlpha = alpha * 0.9;
+
+    const beam = ctx.createLinearGradient(26, 0, reach, 0);
+    beam.addColorStop(0, `rgba(${P.torch}, ${0.34 * flick})`);
+    beam.addColorStop(0.55, `rgba(${P.torch}, ${0.12 * flick})`);
+    beam.addColorStop(1, `rgba(${P.torch}, 0)`);
+    ctx.fillStyle = beam;
+    ctx.beginPath();
+    ctx.moveTo(25, -3);
+    ctx.lineTo(reach, -54);
+    ctx.lineTo(reach, 52);
+    ctx.lineTo(25, 5);
+    ctx.closePath();
+    ctx.fill();
+
+    const core = ctx.createRadialGradient(28, 1, 0, 28, 1, 26);
+    core.addColorStop(0, `rgba(${P.torch}, ${0.5 * flick})`);
+    core.addColorStop(1, `rgba(${P.torch}, 0)`);
+    ctx.fillStyle = core;
+    ctx.fillRect(2, -25, 52, 52);
+
+    ctx.restore();
+
+    // the torch itself, held just ahead of the chest
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = "rgba(205, 240, 245, 0.92)";
+    ctx.beginPath();
+    ctx.roundRect(15, 3, 12, 5, 2);
+    ctx.fill();
+    ctx.fillStyle = `rgba(${P.torch}, 0.95)`;
+    ctx.beginPath();
+    ctx.arc(27, 5.5, 2.2, 0, TAU);
+    ctx.fill();
+    ctx.restore();
+  }
+
   function drawDiverTool(d, t) {
+    if (d.tool === "camera") {
+      ctx.save();
+      ctx.globalAlpha = 0.92;
+      ctx.fillStyle = "rgba(205, 240, 245, 0.92)";
+      ctx.beginPath();
+      ctx.roundRect(19, -2.5, 11, 7, 1.6);
+      ctx.fill();
+      ctx.fillStyle = "rgba(6, 30, 38, 0.9)";
+      ctx.beginPath();
+      ctx.arc(31.5, 1, 2.7, 0, TAU);
+      ctx.fill();
+      ctx.fillStyle = "#ff7a6b";
+      ctx.beginPath();
+      ctx.arc(22, -2, 1.2, 0, TAU);
+      ctx.fill();
+      ctx.restore();
+      return;
+    }
+
     ctx.strokeStyle = "rgba(220, 240, 245, 0.9)";
     ctx.lineWidth = 2;
     ctx.lineCap = "round";
@@ -1778,6 +2016,10 @@
     ctx.globalAlpha = alpha;
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
+
+    // Night dives get a warm torch beam. It is additive, so it also lights
+    // the panel, gear and fish that were painted earlier.
+    if (theme === "dark" && d.torch !== false) drawDiverTorch(d, t, alpha);
 
     // legs and fins
     ctx.strokeStyle = P.diver;
@@ -1901,16 +2143,16 @@
   }
 
   function drawDivers(t) {
-    const fade = diverFade();
-    if (fade <= 0.01) return;
+    const alpha = diverAlpha();
+    if (alpha <= 0.01) return;
 
     for (const d of divers) {
-      if (d.prop === "panel") drawDiverPanel(d, t, fade);
-      else if (d.prop === "gear") drawDiverGear(d, t, fade);
+      if (d.prop === "panel") drawDiverPanel(d, t, alpha);
+      else if (d.prop === "gear") drawDiverGear(d, t, alpha);
     }
 
-    for (const d of divers) drawDiver(d, t, fade);
-    for (const d of divers) drawDiverFX(d, fade);
+    for (const d of divers) drawDiver(d, t, alpha);
+    for (const d of divers) drawDiverFX(d, alpha);
   }
 
   function drawBubbles() {
@@ -2013,6 +2255,14 @@
     canvas.style.width = `${W}px`;
     canvas.style.height = `${H}px`;
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+
+    if (frontCanvas && frontCtx) {
+      frontCanvas.width = Math.round(W * DPR);
+      frontCanvas.height = Math.round(H * DPR);
+      frontCanvas.style.width = `${W}px`;
+      frontCanvas.style.height = `${H}px`;
+      frontCtx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    }
 
     buildFish();
     buildReef();
@@ -2244,7 +2494,16 @@
   /* Marine Watch game: catch fish with a rod, feed the deep with them    */
   /* ------------------------------------------------------------------ */
 
-  const marine = (window.Marine = { tool: "rod", caught: 0, fed: 0 });
+  const marine = (window.Marine = {
+    tool: "rod",
+    caught: 0,
+    fed: 0,
+    fish: 0,
+    deep: 0,
+    depth: 0,
+    species: "reef fish",
+    crewFed: false,
+  });
   let rod = null; // { x, y, state: "cast" | "bite", age, biteAge, fish }
   let treats = [];
 
@@ -2505,6 +2764,20 @@
 
     updateDeep(dt, t);
     updateDivers(dt, t);
+    updateFrontDiver(dt, t);
+
+    // Facts for the Marine Watch documentary overlay. Updating once a second
+    // keeps DOM reads cheap while the captions stay current.
+    docStatsTimer -= dt;
+    if (docStatsTimer <= 0) {
+      docStatsTimer = 1;
+      marine.fish = fish.length;
+      marine.deep = deep.length;
+      marine.depth = Math.round(scrollProgress * 10900);
+      marine.species = deep.length
+        ? [...new Set(deep.map((c) => c.type))].join(", ")
+        : "reef fish";
+    }
 
     for (const j of jellies) {
       j.y -= j.speed * dt;
@@ -2717,9 +2990,16 @@
     } catch (err) {
       if (errorCount++ < 3) console.warn("background paint error", err);
     }
+
+    try {
+      drawFrontDiver(t);
+    } catch (err) {
+      if (errorCount++ < 3) console.warn("foreground diver paint error", err);
+    }
   }
 
   function renderStatic() {
+    clearFrontDiver();
     paint(performance.now() / 1000);
   }
 
@@ -2913,6 +3193,8 @@
     stop();
     if (reduce.matches) {
       ripples = [];
+      if (frontDiver) frontDiver.active = false;
+      clearFrontDiver();
       renderStatic();
     } else {
       start();
