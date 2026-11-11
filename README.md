@@ -17,7 +17,7 @@ No framework. No build step. No dependencies. Plain HTML, CSS and JS, ready for 
 ## The underwater scene
 
 The scene is drawn on two canvases: the main background reef, plus a transparent
-foreground layer that lets a diver occasionally swim in front of the hero copy.
+foreground layer where two idle cleaners hover, ready to scrape growth off the page.
 
 - **God rays, marine snow and rising bubbles** drifting through the water.
 - **Bioluminescent plankton** that drift on the current and scatter away from the pointer,
@@ -28,9 +28,12 @@ foreground layer that lets a diver occasionally swim in front of the hero copy.
   anglerfish. Each species enters at its own scroll depth, and going back up lets them swim
   away again.
 - **Scuba-diver easter eggs** near the top of the page: a welder patching a floating card, a
-  mechanic tightening a drifting gear and a swimmer checking on the fish. A fourth diver
-  occasionally crosses in front of the hero copy, torch first. Scroll away from the top and
-  the whole crew kicks upward and disappears; in night mode their dive torches switch on.
+  mechanic tightening a drifting gear and a swimmer checking on the fish. Two idle cleaners
+  hover at the edges, then swim across the copy to scrape lichen and seagrass off headings,
+  buttons, stats and cards. Scroll away from the top and the whole crew kicks upward and
+  disappears; in night mode their dive torches switch on.
+- **Reef growth** — lichen, barnacles and seagrass slowly colonise the interface. A cleaned
+  patch grows back after a minute or two, so the cleaners always have something to do.
 - **Marine Watch documentary** — in Marine Watch the divers become a film crew: a REC frame
   and field-notes lower third track the timecode, depth and live fish count, while one diver
   drops food for the school.
@@ -39,8 +42,9 @@ foreground layer that lets a diver occasionally swim in front of the hero copy.
 - **Creatures that notice the pointer** — small fish scatter, sharks turn and trail your
   cursor, turtles dart away, whales ease toward your depth and an anglerfish leans its lure
   toward you. Clicking startles anything nearby.
-- **Two palettes:** the day/night toggle now switches between a sunlit shallow reef and a
-  deep, bioluminescent sea. Scrolling down deepens the water in both.
+- **Two palettes with a water-ripple switch** — the day/night toggle spreads the new light
+  from the button like a stone dropped in water, with three rings chasing the wipe. Scrolling
+  down deepens the water in both themes.
 - **A floating interface** — headings, copy, buttons, stats, chips, tiles and project cards
   bob gently in the current and lean away from the pointer, so the whole page feels
   suspended in water.
@@ -86,12 +90,13 @@ portfolio/
 │   └── js/
 │       ├── projects.js         curated projects + site config
 │       ├── app.js              rendering, GitHub discovery, filters, lightbox
+│       ├── growth.js           lichen / seagrass growth on the interface
 │       ├── background.js       underwater canvas scene, creatures + ripples
 │       ├── player.js           navbar music player
 │       ├── watch.js            Marine Watch mode, fishing HUD + documentary
 │       ├── depth.js            depth meter / ocean zones
 │       ├── float.js            floating interface (bob + pointer reactions)
-│       └── theme.js            reef / deep-sea theme toggle
+│       └── theme.js            reef / deep-sea theme toggle + water ripple
 ├── thumbnails/                 ← drop screenshots here
 │   └── README.md               naming rules
 ├── tools/

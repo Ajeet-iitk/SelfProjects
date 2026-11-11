@@ -99,6 +99,18 @@
   --overlay: rgba(2, 12, 18, 0.88);
 
   --theme-icon: #c8ecff;
+
+  /* reef growth */
+  --growth-lichen-a: #7fd39b;
+  --growth-lichen-b: #d6c473;
+  --growth-lichen-c: #4d9f77;
+  --growth-lichen-d: #a9e4b9;
+  --growth-grass: #2f9e6b;
+  --growth-grass-2: #69c78d;
+  --growth-shell: #efe6cf;
+  --growth-shell-dark: rgba(54, 44, 26, 0.45);
+  --ripple-line: rgba(120, 240, 210, 0.55);
+  --ripple-glow: rgba(88, 245, 200, 0.28);
 }
 
 /* ---------- light theme ---------- */
@@ -178,6 +190,17 @@
   --overlay: rgba(226, 244, 249, 0.9);
 
   --theme-icon: #f59e0b;
+
+  --growth-lichen-a: #4b8f5f;
+  --growth-lichen-b: #9c8734;
+  --growth-lichen-c: #33704f;
+  --growth-lichen-d: #76b98a;
+  --growth-grass: #1f7a50;
+  --growth-grass-2: #4d9f6b;
+  --growth-shell: #b8a781;
+  --growth-shell-dark: rgba(60, 48, 24, 0.5);
+  --ripple-line: rgba(7, 122, 92, 0.4);
+  --ripple-glow: rgba(15, 191, 146, 0.22);
 }
 
 /* ---------- base ---------- */
@@ -373,6 +396,132 @@ code {
 @media (prefers-reduced-motion: reduce) {
   .diver-front {
     display: none;
+  }
+}
+
+/* ---------- reef growth on the interface ---------- */
+.reef-growth {
+  position: absolute;
+  z-index: 6;
+  display: block;
+  pointer-events: none;
+  user-select: none;
+  opacity: 0.82;
+  transition: opacity 0.55s ease, transform 0.55s var(--ease), filter 0.55s ease;
+}
+
+.reef-growth--inset {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* A soft dusting of algae across the letterforms. The dots are tiny, so the
+   words stay sharp while the surface looks colonised. */
+.reef-growth--film {
+  z-index: 5;
+  opacity: 0.3;
+  mix-blend-mode: screen;
+  background-image:
+    radial-gradient(circle at 2% 24%, var(--growth-lichen-a) 0 1.8px, transparent 3.2px),
+    radial-gradient(circle at 9% 72%, var(--growth-lichen-c) 0 2px, transparent 3.6px),
+    radial-gradient(circle at 16% 38%, var(--growth-lichen-d) 0 1.5px, transparent 2.9px),
+    radial-gradient(circle at 23% 84%, var(--growth-lichen-b) 0 1.9px, transparent 3.4px),
+    radial-gradient(circle at 31% 16%, var(--growth-lichen-a) 0 1.8px, transparent 3.2px),
+    radial-gradient(circle at 39% 62%, var(--growth-lichen-c) 0 1.5px, transparent 2.9px),
+    radial-gradient(circle at 47% 30%, var(--growth-lichen-b) 0 2px, transparent 3.6px),
+    radial-gradient(circle at 55% 88%, var(--growth-lichen-a) 0 1.5px, transparent 2.9px),
+    radial-gradient(circle at 63% 48%, var(--growth-lichen-d) 0 1.9px, transparent 3.4px),
+    radial-gradient(circle at 71% 12%, var(--growth-lichen-c) 0 1.6px, transparent 3px),
+    radial-gradient(circle at 79% 70%, var(--growth-lichen-b) 0 2px, transparent 3.6px),
+    radial-gradient(circle at 87% 34%, var(--growth-lichen-a) 0 1.5px, transparent 2.9px),
+    radial-gradient(circle at 94% 80%, var(--growth-lichen-c) 0 1.8px, transparent 3.2px),
+    radial-gradient(circle at 68% 96%, var(--growth-lichen-d) 0 1.4px, transparent 2.8px),
+    radial-gradient(circle at 38% 4%, var(--growth-lichen-a) 0 1.5px, transparent 2.9px);
+  filter: blur(0.2px);
+}
+
+:root[data-theme="light"] .reef-growth--film {
+  mix-blend-mode: multiply;
+  opacity: 0.2;
+  filter: blur(0.15px);
+}
+
+.reef-growth--lichen {
+  border-radius: 48% 52% 55% 45% / 58% 46% 54% 42%;
+  transform: rotate(var(--grot, 0deg));
+  background-image:
+    radial-gradient(circle at 13% 62%, var(--growth-lichen-b) 0 2.3px, transparent 4.1px),
+    radial-gradient(circle at 29% 32%, var(--growth-lichen-a) 0 2.7px, transparent 4.6px),
+    radial-gradient(circle at 47% 68%, var(--growth-lichen-c) 0 3.1px, transparent 5.2px),
+    radial-gradient(circle at 63% 26%, var(--growth-lichen-a) 0 2.1px, transparent 3.8px),
+    radial-gradient(circle at 77% 56%, var(--growth-lichen-d) 0 2.9px, transparent 5px),
+    radial-gradient(circle at 90% 34%, var(--growth-lichen-b) 0 2.2px, transparent 4px),
+    radial-gradient(circle at 18% 88%, var(--growth-lichen-c) 0 2px, transparent 3.7px),
+    radial-gradient(circle at 54% 92%, var(--growth-lichen-a) 0 1.8px, transparent 3.3px),
+    radial-gradient(circle at 82% 84%, var(--growth-lichen-d) 0 2.4px, transparent 4.3px);
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.25));
+}
+
+.reef-growth--barnacle {
+  background-image:
+    radial-gradient(circle at 9% 72%, var(--growth-shell) 0 2.4px, var(--growth-shell-dark) 2.5px 3.2px, transparent 3.7px),
+    radial-gradient(circle at 28% 48%, var(--growth-shell) 0 1.9px, var(--growth-shell-dark) 2px 2.7px, transparent 3.2px),
+    radial-gradient(circle at 46% 76%, var(--growth-shell) 0 2.2px, var(--growth-shell-dark) 2.3px 3px, transparent 3.5px),
+    radial-gradient(circle at 64% 38%, var(--growth-shell) 0 2.6px, var(--growth-shell-dark) 2.7px 3.5px, transparent 4px),
+    radial-gradient(circle at 82% 66%, var(--growth-shell) 0 2px, var(--growth-shell-dark) 2.1px 2.8px, transparent 3.3px),
+    radial-gradient(circle at 94% 30%, var(--growth-shell) 0 1.7px, var(--growth-shell-dark) 1.8px 2.5px, transparent 3px);
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.22));
+}
+
+.reef-growth--seagrass {
+  color: var(--growth-grass);
+}
+
+.reef-growth--seagrass svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  transform-origin: 50% 100%;
+  animation: reef-sway 5.8s ease-in-out var(--gdelay, 0s) infinite;
+}
+
+.reef-growth .blade {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+}
+
+.reef-growth .blade--b { stroke: var(--growth-grass-2); }
+.reef-growth .blade--c { stroke: var(--growth-lichen-a); }
+
+.reef-growth.is-cleaned {
+  opacity: 0;
+  transform: scale(0.35) translateY(-6px) rotate(6deg);
+  filter: blur(3px);
+}
+
+.reef-growth--film.is-cleaned {
+  transform: none;
+}
+
+.reef-growth--seagrass.is-cleaned svg {
+  animation-play-state: paused;
+}
+
+@keyframes reef-sway {
+  0%, 100% { transform: scaleX(var(--gflip, 1)) rotate(-2deg); }
+  50% { transform: scaleX(var(--gflip, 1)) rotate(3.2deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reef-growth {
+    transition: none;
+  }
+  .reef-growth--seagrass svg {
+    animation: none;
   }
 }
 
@@ -1970,20 +2119,69 @@ code {
 }
 
 ::view-transition-old(root) {
-  animation: theme-fade 0.55s var(--ease) both;
+  animation: theme-fade 0.7s var(--ease) both;
 }
 
 ::view-transition-new(root) {
-  animation: theme-wipe 0.62s var(--ease) both;
+  animation: theme-wipe 0.78s cubic-bezier(0.2, 0.72, 0.22, 1) both;
 }
 
+/* The new theme opens like a stone dropped into water: a circular wash plus
+   three rings that spread out from the toggle button. */
 @keyframes theme-wipe {
   from { clip-path: circle(0% at var(--vt-x, 50%) var(--vt-y, 50%)); }
-  to { clip-path: circle(150% at var(--vt-x, 50%) var(--vt-y, 50%)); }
+  45% { clip-path: circle(62% at var(--vt-x, 50%) var(--vt-y, 50%)); }
+  to { clip-path: circle(155% at var(--vt-x, 50%) var(--vt-y, 50%)); }
 }
 
 @keyframes theme-fade {
   to { opacity: 0.55; }
+}
+
+.theme-ripple {
+  position: fixed;
+  inset: 0;
+  z-index: 150;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.theme-ripple i {
+  position: absolute;
+  left: var(--rx, 50%);
+  top: var(--ry, 50%);
+  width: 44px;
+  height: 44px;
+  margin: -22px 0 0 -22px;
+  border-radius: 50%;
+  border: 1px solid var(--ripple-line);
+  box-shadow: 0 0 20px var(--ripple-glow), inset 0 0 14px var(--ripple-glow);
+  opacity: 0;
+  animation: theme-ring 1.35s cubic-bezier(0.16, 0.72, 0.24, 1) forwards;
+}
+
+.theme-ripple i:nth-child(2) {
+  width: 62px;
+  height: 62px;
+  margin: -31px 0 0 -31px;
+  animation-delay: 0.14s;
+}
+
+.theme-ripple i:nth-child(3) {
+  width: 86px;
+  height: 86px;
+  margin: -43px 0 0 -43px;
+  animation-delay: 0.3s;
+}
+
+@keyframes theme-ring {
+  0% { opacity: 0; transform: scale(0.2); }
+  10% { opacity: 0.85; }
+  100% { opacity: 0; transform: scale(44); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .theme-ripple { display: none; }
 }
 
 /* ---------- motion ---------- */

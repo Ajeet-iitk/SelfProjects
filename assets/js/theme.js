@@ -1,7 +1,8 @@
 /* ==========================================================================
    Theme — day / night
    Persists the choice, updates the toggle + browser chrome colour, and uses
-   the View Transitions API for a circular wipe out of the toggle button.
+   the View Transitions API for a circular water-ripple wipe out of the toggle
+   button. Three expanding rings sell the "stone dropped in water" feel.
    ========================================================================== */
 
 (() => {
@@ -40,15 +41,38 @@
   }
 
   function apply(theme, animate) {
-    if (!animate || reduce.matches || typeof document.startViewTransition !== "function") {
+    if (!animate || reduce.matches) {
       commit(theme);
       return;
     }
 
-    // The wipe grows from the middle of the toggle button.
     const rect = btn ? btn.getBoundingClientRect() : { left: innerWidth / 2, top: 0, width: 0, height: 0 };
-    root.style.setProperty("--vt-x", `${((rect.left + rect.width / 2) / innerWidth) * 100}%`);
-    root.style.setProperty("--vt-y", `${((rect.top + rect.height / 2) / innerHeight) * 100}%`);
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+
+    // Water rings spread from the toggle after the snapshots are taken, so
+    // they are not frozen into the old page.
+    function ripple() {
+      if (reduce.matches) return;
+      const layer = document.createElement("div");
+      layer.className = "theme-ripple";
+      layer.setAttribute("aria-hidden", "true");
+      layer.style.setProperty("--rx", `${cx}px`);
+      layer.style.setProperty("--ry", `${cy}px`);
+      layer.innerHTML = "<i></i><i></i><i></i>";
+      document.body.appendChild(layer);
+      setTimeout(() => layer.remove(), 1800);
+    }
+
+    if (typeof document.startViewTransition !== "function") {
+      commit(theme);
+      ripple();
+      return;
+    }
+
+    // The wipe grows from the middle of the toggle button.
+    root.style.setProperty("--vt-x", `${(cx / innerWidth) * 100}%`);
+    root.style.setProperty("--vt-y", `${(cy / innerHeight) * 100}%`);
 
     const cleanup = () => {
       root.style.removeProperty("--vt-x");
@@ -70,6 +94,7 @@
     } catch {
       cleanup();
       once();
+      ripple();
       return;
     }
 
@@ -80,7 +105,12 @@
       }
     }, 250);
 
-    transition.ready.then(() => clearTimeout(guard)).catch(() => {});
+    transition.ready
+      .then(() => {
+        clearTimeout(guard);
+        ripple();
+      })
+      .catch(() => {});
     transition.finished.finally(() => {
       clearTimeout(guard);
       once();

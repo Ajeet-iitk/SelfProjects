@@ -161,8 +161,7 @@
   let reefH = 0;
   let plankton = [];
   let divers = [];
-  let diversBand = null; // where the hero copy sits, for the foreground swimmer
-  let frontDiver = null;
+  let frontDivers = []; // two idle scuba cleaners working the foreground canvas
 
   let deep = [];
   let deepTimer = 1;
@@ -1549,35 +1548,50 @@
       feedTimer: rand(2.5, 5),
     }));
 
-    // The foreground swimmer crosses the hero copy now and then. It uses the
-    // same art but lives on the transparent canvas above the page.
-    diversBand = {
-      y: clamp(
-        tr ? tr.top + tr.height * (mobile ? 0.34 : 0.38) : H * 0.34,
-        H * 0.2,
-        H * 0.52
-      ),
-    };
-
-    if (!frontDiver) {
-      frontDiver = {
-        active: false,
-        timer: rand(7, 12),
-        age: 0,
-        dur: 8.5,
-        dir: 1,
-        x: 0,
-        y: 0,
-        scale: mobile ? 0.56 : 0.64,
+    // The foreground cleaners. They hover beside the hero, then take turns
+    // swimming to a patch of lichen or seagrass on the interface, scraping it
+    // off, and drifting back to their idle spot.
+    const idle = cleanerIdleSpots();
+    if (frontDivers.length !== 2) {
+      frontDivers = idle.map((p, i) => ({
+        id: i,
+        x: p.x,
+        y: p.y,
+        idleX: p.x,
+        idleY: p.y,
+        targetX: p.x,
+        targetY: p.y,
+        state: "idle",
+        cooldown: 2.2 + i * 2.4 + rand(0, 1.6),
+        spot: null,
+        scrubTimer: 0,
+        dir: p.x < W / 2 ? 1 : -1,
+        scale: mobile ? 0.5 : 0.58,
         phase: rand(0, TAU),
-        tool: "camera",
+        tool: "brush",
         prop: null,
         torch: true,
         sparks: [],
         bubbles: [],
-      };
+        bubbleTimer: rand(0.5, 1.4),
+      }));
+    } else {
+      frontDivers.forEach((d, i) => {
+        d.idleX = idle[i].x;
+        d.idleY = idle[i].y;
+        d.scale = mobile ? 0.5 : 0.58;
+      });
     }
-    frontDiver.scale = mobile ? 0.56 : 0.64;
+  }
+
+  function cleanerIdleSpots() {
+    const title = document.querySelector(".hero__title");
+    const tr = title ? title.getBoundingClientRect() : null;
+    const top = tr ? clamp(tr.top + tr.height * 0.14, H * 0.16, H * 0.34) : H * 0.22;
+    return [
+      { x: clamp(W * 0.075, 52, 116), y: top },
+      { x: clamp(W - W * 0.075, W - 116, W - 52), y: clamp(top + H * 0.13, H * 0.3, H * 0.52) },
+    ];
   }
 
   function spawnDiverSparks(d) {
@@ -1721,71 +1735,137 @@
     }
   }
 
-  function updateFrontDiver(dt, t) {
-    if (!frontDiver || reduce.matches) return;
+  function growthSpotsInView() {
+    const api = window.Growth;
+    if (!api || typeof api.list !== "function") return [];
+    const out = [];
+    for (const spot of api.list()) {
+      const r = spot.node.getBoundingClientRect();
+      if (r.width < 2 || r.height < 2) continue;
+      if (r.top < 72 || r.bottom > H - 18) continue;
+      if (r.right < 12 || r.left > W - 12) continue;
+      out.push(spot);
+    }
+    return out;
+  }
+
+  function pickGrowthSpot(d) {
+    const candidates = growthSpotsInView().filter(
+      (s) => !frontDivers.some((o) => o !== d && o.spot === s)
+    );
+
+    let best = null;
+    let bestScore = Infinity;
+    for (const s of candidates) {
+      const r = s.node.getBoundingClientRect();
+      const cx = r.left + r.width / 2;
+      const cy = r.top + r.height / 2;
+      // Prefer growth on the cleaner's own side of the page, then the nearest.
+      const side = d.id === 0 ? (cx < W * 0.55 ? 0 : 300) : cx > W * 0.45 ? 0 : 300;
+      const score = Math.hypot(cx - d.idleX, cy - d.idleY) + side;
+      if (score < bestScore) {
+        bestScore = score;
+        best = s;
+      }
+    }
+    return best;
+  }
+
+  function aimAtSpot(d, spot) {
+    const r = spot.node.getBoundingClientRect();
+    const cx = r.left + r.width / 2;
+    const cy = r.top + r.height / 2;
+    d.dir = cx >= d.x ? 1 : -1;
+    d.targetX = cx - d.dir * 22 * d.scale;
+    d.targetY = cy - 3;
+  }
+
+  function updateFrontDivers(dt, t) {
+    if (!frontCtx || reduce.matches || !frontDivers.length) return;
+    if (diverExit() >= 0.999) return;
 
     const exit = diverExit();
-    if (exit > 0.9) {
-      frontDiver.active = false;
-      frontDiver.age = 0;
-      frontDiver.timer = rand(6, 10);
-      return;
-    }
+    const canClean = !watching() && scrollPx < 300 && exit < 0.45;
 
-    if (!frontDiver.active) {
-      if (scrollPx > 80) return;
-      frontDiver.timer -= dt;
-      if (frontDiver.timer > 0) return;
+    for (const d of frontDivers) {
+      d.tool = watching() ? "camera" : "brush";
 
-      frontDiver.active = true;
-      frontDiver.age = 0;
-      frontDiver.dir = Math.random() < 0.5 ? 1 : -1;
-      const title = document.querySelector(".hero__title");
-      const tr = title ? title.getBoundingClientRect() : null;
-      const baseY = tr
-        ? clamp(tr.top + tr.height * 0.38, H * 0.2, H * 0.52)
-        : diversBand
-        ? diversBand.y
-        : H * 0.34;
-      frontDiver.baseY = baseY + rand(-14, 14);
-      frontDiver.x = frontDiver.dir > 0 ? -90 : W + 90;
-      frontDiver.y = frontDiver.baseY;
-      frontDiver.bubbles = [];
-      frontDiver.tool = watching() ? "camera" : "wrench";
-      frontDiver.bubbleTimer = rand(0.4, 1.2);
-      return;
-    }
+      if (
+        (d.state === "approach" || d.state === "scrub") &&
+        (!canClean || !d.spot || !d.spot.node.isConnected)
+      ) {
+        d.spot = null;
+        d.state = "return";
+      }
 
-    frontDiver.age += dt;
-    const p = clamp(frontDiver.age / frontDiver.dur, 0, 1);
-    const ease = p * p * (3 - 2 * p);
-    const start = frontDiver.dir > 0 ? -90 : W + 90;
-    const end = frontDiver.dir > 0 ? W + 90 : -90;
+      if (d.state === "idle") {
+        d.cooldown -= dt;
+        if (canClean && d.cooldown <= 0) {
+          const spot = pickGrowthSpot(d);
+          if (spot) {
+            d.spot = spot;
+            d.state = "approach";
+            aimAtSpot(d, spot);
+          } else {
+            d.cooldown = rand(2.5, 5);
+          }
+        }
+        d.targetX = d.idleX + Math.sin(t * 0.32 + d.phase) * 11;
+        d.targetY = d.idleY + Math.sin(t * 0.78 + d.phase * 1.4) * 6;
+      } else if (d.state === "approach") {
+        aimAtSpot(d, d.spot);
+        if (Math.hypot(d.targetX - d.x, d.targetY - d.y) < 15) {
+          d.state = "scrub";
+          d.scrubTimer = rand(1.15, 1.75);
+          d.bubbleTimer = 0;
+        }
+      } else if (d.state === "scrub") {
+        aimAtSpot(d, d.spot);
+        d.targetX += Math.sin(t * 17 + d.phase) * 1.8;
+        d.targetY += Math.cos(t * 15 + d.phase) * 1.4;
+        d.scrubTimer -= dt;
 
-    frontDiver.x = start + (end - start) * ease;
-    frontDiver.y =
-      frontDiver.baseY +
-      Math.sin(p * Math.PI * 2 + frontDiver.phase) * 9 -
-      diverRise() * (frontDiver.baseY + 160);
-    frontDiver.tool = watching() ? "camera" : "wrench";
+        d.bubbleTimer -= dt;
+        if (d.bubbleTimer <= 0) {
+          spawnDiverBubble(d);
+          d.bubbleTimer = rand(0.16, 0.34);
+        }
 
-    frontDiver.bubbleTimer -= dt;
-    if (frontDiver.bubbleTimer <= 0) {
-      spawnDiverBubble(frontDiver);
-      frontDiver.bubbleTimer = rand(1.1, 2.2);
-    }
+        if (d.scrubTimer <= 0) {
+          if (d.spot) window.Growth?.clean(d.spot);
+          d.spot = null;
+          d.state = "return";
+          d.cooldown = rand(7, 12);
+        }
+      } else if (d.state === "return") {
+        d.targetX = d.idleX + Math.sin(t * 0.32 + d.phase) * 8;
+        d.targetY = d.idleY + Math.sin(t * 0.78 + d.phase * 1.4) * 5;
+        if (Math.hypot(d.targetX - d.x, d.targetY - d.y) < 16) {
+          d.state = "idle";
+          d.cooldown = rand(3, 6);
+        }
+      }
 
-    for (let i = frontDiver.bubbles.length - 1; i >= 0; i -= 1) {
-      const b = frontDiver.bubbles[i];
-      b.y -= b.vy * dt;
-      b.x += Math.sin(t * 2.1 + b.phase) * 5 * dt;
-      if (b.y < -10) frontDiver.bubbles.splice(i, 1);
-    }
+      // The whole crew rises out of frame when the page is scrolled away.
+      const lift = diverRise() * (d.idleY + 220);
+      const speed = d.state === "approach" ? 2.4 : d.state === "scrub" ? 7 : 1.4;
+      d.x += (d.targetX - d.x) * Math.min(1, dt * speed);
+      d.y += (d.targetY - lift - d.y) * Math.min(1, dt * speed);
 
-    if (p >= 1) {
-      frontDiver.active = false;
-      frontDiver.age = 0;
-      frontDiver.timer = rand(watching() ? 12 : 17, watching() ? 19 : 27);
+      if (d.state !== "scrub") {
+        d.bubbleTimer -= dt;
+        if (d.bubbleTimer <= 0) {
+          spawnDiverBubble(d);
+          d.bubbleTimer = rand(1.0, 2.2);
+        }
+      }
+
+      for (let i = d.bubbles.length - 1; i >= 0; i -= 1) {
+        const b = d.bubbles[i];
+        b.y -= b.vy * dt;
+        b.x += Math.sin(t * 2.1 + b.phase) * 5 * dt;
+        if (b.y < -10) d.bubbles.splice(i, 1);
+      }
     }
   }
 
@@ -1795,12 +1875,12 @@
     frontCtx.clearRect(0, 0, W, H);
   }
 
-  function drawFrontDiver(t) {
+  function drawFrontDivers(t) {
     if (!frontCtx) return;
     clearFrontDiver();
-    if (!frontDiver || !frontDiver.active) return;
+    if (!frontDivers.length) return;
 
-    const alpha = clamp(1 - diverRise(), 0, 1);
+    const alpha = diverAlpha();
     if (alpha <= 0.01) return;
 
     const prev = ctx;
@@ -1809,8 +1889,10 @@
       ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
       ctx.globalAlpha = 1;
       ctx.globalCompositeOperation = "source-over";
-      drawDiver(frontDiver, t, alpha);
-      drawDiverFX(frontDiver, alpha);
+      for (const d of frontDivers) {
+        drawDiver(d, t, alpha);
+        drawDiverFX(d, alpha);
+      }
     } finally {
       ctx = prev;
     }
@@ -1964,6 +2046,40 @@
       ctx.beginPath();
       ctx.arc(22, -2, 1.2, 0, TAU);
       ctx.fill();
+      ctx.restore();
+      return;
+    }
+
+    if (d.tool === "brush") {
+      const shake = d.state === "scrub" ? Math.sin(t * 22 + d.phase) * 0.22 : 0;
+      ctx.save();
+      ctx.translate(23, 4.6);
+      ctx.rotate(0.18 + shake);
+      ctx.lineCap = "round";
+
+      // handle
+      ctx.strokeStyle = "rgba(220, 240, 245, 0.92)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(7, -2);
+      ctx.stroke();
+
+      // scraper head
+      ctx.fillStyle = "#ffe2a1";
+      ctx.beginPath();
+      ctx.roundRect(6.5, -6.8, 4.6, 7.2, 1.4);
+      ctx.fill();
+
+      // bristles
+      ctx.strokeStyle = "#9fe8c2";
+      ctx.lineWidth = 1;
+      for (let i = -2; i <= 2; i += 1) {
+        ctx.beginPath();
+        ctx.moveTo(11, i * 1.5);
+        ctx.lineTo(15.5, i * 1.9 - 1);
+        ctx.stroke();
+      }
       ctx.restore();
       return;
     }
@@ -2764,7 +2880,7 @@
 
     updateDeep(dt, t);
     updateDivers(dt, t);
-    updateFrontDiver(dt, t);
+    updateFrontDivers(dt, t);
 
     // Facts for the Marine Watch documentary overlay. Updating once a second
     // keeps DOM reads cheap while the captions stay current.
@@ -2992,7 +3108,7 @@
     }
 
     try {
-      drawFrontDiver(t);
+      drawFrontDivers(t);
     } catch (err) {
       if (errorCount++ < 3) console.warn("foreground diver paint error", err);
     }
@@ -3193,7 +3309,11 @@
     stop();
     if (reduce.matches) {
       ripples = [];
-      if (frontDiver) frontDiver.active = false;
+      frontDivers.forEach((d) => {
+        d.spot = null;
+        d.state = "idle";
+        d.cooldown = rand(2, 4);
+      });
       clearFrontDiver();
       renderStatic();
     } else {
