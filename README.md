@@ -34,9 +34,8 @@ foreground layer where two idle cleaners hover, ready to scrape growth off the p
   disappears; in night mode their dive torches switch on.
 - **Reef growth** — lichen, barnacles and seagrass slowly colonise the interface. A cleaned
   patch grows back after a minute or two, so the cleaners always have something to do.
-- **Marine Watch documentary** — in Marine Watch the divers become a film crew: a REC frame
-  and field-notes lower third track the timecode, depth and live fish count, while one diver
-  drops food for the school.
+- **Marine Watch camera frame** — in Marine Watch the page clears to a plain viewfinder frame
+  while one diver drops food for the school. No HUD panel covers the water.
 - **Cursor ripples** — moving the pointer leaves expanding rings, and clicking makes a
   bigger splash with a small burst of bubbles.
 - **Creatures that notice the pointer** — small fish scatter, sharks turn and trail your
@@ -69,10 +68,9 @@ keypress anywhere outside the player controls.
 ## Marine Watch
 
 Press `W` (or the eye button) to fade the site away and just watch the ocean. The music keeps
-playing, the page still scrolls, and the diving crew becomes a documentary unit. A viewfinder
-frame and a REC lower third show a running timecode, the current depth and zone, the live fish
-count and rotating field notes about the reef and the deep. If you leave Marine Watch at the
-surface, the swimmer also releases food so the school gathers in front of the camera.
+playing, the page still scrolls, and the diving crew becomes a documentary unit with a plain
+viewfinder frame around the water. If you leave Marine Watch at the surface, the swimmer also
+releases food so the school gathers in front of the camera.
 
 ---
 

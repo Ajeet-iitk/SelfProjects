@@ -1635,8 +1635,22 @@
       let ty = d.ay;
 
       if (d.prop) {
-        // Anchored workers stay with the thing they are repairing; the bob
-        // in drawDiver keeps them alive without drifting off the prop.
+        // The welder and the mechanic drift on a slow looping patrol around
+        // their prop instead of hovering in place. Two different frequencies
+        // keep the loop from looking like a pendulum. The prop is drawn
+        // relative to the diver, so it floats along beside them.
+        const rx = d.prop === "gear" ? 66 : 48;
+        const ry = d.prop === "gear" ? 26 : 20;
+        const speed = d.prop === "gear" ? 0.3 : 0.24;
+
+        tx = clamp(d.ax + Math.sin(t * speed + d.phase) * rx, 70, W - 100);
+        ty = clamp(
+          d.ay + Math.sin(t * speed * 1.7 + d.phase * 1.31) * ry,
+          H * 0.12,
+          H * 0.74
+        );
+        d.tool = watchingNow ? "camera" : d.prop === "gear" ? "wrench" : "weld";
+        // Keep facing the prop so the panel / gear stays on the working side.
         d.dir = d.baseDir;
       } else {
         d.tool = watchingNow ? "camera" : "wrench";
@@ -1699,8 +1713,8 @@
       // leave. Scrolling back down brings them back.
       ty -= rise * (d.ay + 160);
 
-      d.x += (tx - d.x) * Math.min(1, dt * 1.1);
-      d.y += (ty - d.y) * Math.min(1, dt * 1.1);
+      d.x += (tx - d.x) * Math.min(1, dt * (d.prop ? 1.7 : 1.1));
+      d.y += (ty - d.y) * Math.min(1, dt * (d.prop ? 1.7 : 1.1));
 
       d.sparkTimer -= dt;
       if (d.sparkTimer <= 0) {

@@ -2140,11 +2140,11 @@ code {
 }
 
 ::view-transition-old(root) {
-  animation: theme-fade 0.7s var(--ease) both;
+  animation: theme-fade 1s var(--ease) both;
 }
 
 ::view-transition-new(root) {
-  animation: theme-wipe 0.78s cubic-bezier(0.2, 0.72, 0.22, 1) both;
+  animation: theme-wipe 1.15s cubic-bezier(0.22, 0.68, 0.24, 1) both;
 }
 
 /* The new theme opens like a stone dropped into water: a circular wash plus
@@ -2178,27 +2178,28 @@ code {
   border: 1px solid var(--ripple-line);
   box-shadow: 0 0 20px var(--ripple-glow), inset 0 0 14px var(--ripple-glow);
   opacity: 0;
-  animation: theme-ring 1.35s cubic-bezier(0.16, 0.72, 0.24, 1) forwards;
+  animation: theme-ring 2.2s cubic-bezier(0.16, 0.72, 0.24, 1) forwards;
 }
 
 .theme-ripple i:nth-child(2) {
   width: 62px;
   height: 62px;
   margin: -31px 0 0 -31px;
-  animation-delay: 0.14s;
+  animation-delay: 0.34s;
 }
 
 .theme-ripple i:nth-child(3) {
   width: 86px;
   height: 86px;
   margin: -43px 0 0 -43px;
-  animation-delay: 0.3s;
+  animation-delay: 0.68s;
 }
 
 @keyframes theme-ring {
-  0% { opacity: 0; transform: scale(0.2); }
-  10% { opacity: 0.85; }
-  100% { opacity: 0; transform: scale(44); }
+  0% { opacity: 0; transform: scale(0.14); }
+  10% { opacity: 0.9; }
+  62% { opacity: 0.5; }
+  100% { opacity: 0; transform: scale(26); }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -2827,6 +2828,29 @@ body.is-watching .watch-exit:focus-visible {
   .depth__read { display: grid; position: absolute; right: 18px; top: -34px; max-width: 120px; }
 }
 
+/* Phones: the tick labels are hidden, so keep a compact live readout pinned
+   above the gauge. Without it the marker moves with no number to read. */
+@media (max-width: 479px) {
+  .depth { right: 4px; }
+  .depth__read {
+    display: grid;
+    position: absolute;
+    right: 14px;
+    top: -30px;
+    gap: 0;
+    width: max-content;
+    padding: 3px 7px 4px;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    background: color-mix(in srgb, var(--bg) 80%, transparent);
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+  }
+  .depth__read strong { font-size: 0.76rem; }
+  /* Phones keep just the number; the zone still lives in the aria-label. */
+  .depth__read span { display: none; }
+}
+
 /* ---------- marine watch: fishing HUD ---------- */
 .watch-hud {
   position: fixed;
@@ -2923,79 +2947,6 @@ body.is-watching .watch-film {
 .watch-film__corner--bl { bottom: 0; left: 0; border-right: 0; border-top: 0; }
 .watch-film__corner--br { bottom: 0; right: 0; border-left: 0; border-top: 0; }
 
-.watch-film__panel {
-  position: absolute;
-  top: 14px;
-  left: 14px;
-  max-width: min(390px, 78vw);
-  padding: 12px 16px 13px;
-  border-left: 2px solid rgba(88, 245, 200, 0.75);
-  border-radius: 0 10px 10px 0;
-  background: rgba(3, 17, 24, 0.5);
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
-  color: #d9fff2;
-  font-family: var(--font-mono);
-}
-
-.watch-film__head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 5px;
-  font-size: 0.62rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: rgba(191, 238, 221, 0.8);
-}
-
-.watch-film__rec {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  color: #ff9d8a;
-  font-weight: 600;
-}
-
-.watch-film__rec i {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #ff6f61;
-  box-shadow: 0 0 8px rgba(255, 111, 97, 0.8);
-  animation: film-rec 1.8s ease-in-out infinite;
-}
-
-.watch-film__sep { opacity: 0.35; }
-
-.watch-film__caption {
-  margin: 0;
-  font-size: 0.74rem;
-  line-height: 1.55;
-  color: rgba(229, 255, 248, 0.92);
-}
-
-@keyframes film-rec {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.25; }
-}
-
-@media (max-width: 520px) {
-  .watch-film__panel {
-    top: 64px;
-    left: 8px;
-    max-width: min(330px, calc(100vw - 86px));
-    padding: 9px 12px 10px;
-  }
-  .watch-film__head { font-size: 0.56rem; gap: 6px; }
-  .watch-film__caption { font-size: 0.68rem; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .watch-film__rec i { animation: none; }
-}
-
 @media (max-width: 520px) {
   .watch-hud__tools button { padding: 7px 9px; font-size: 0.68rem; }
 }
@@ -3003,7 +2954,9 @@ body.is-watching .watch-film {
 /* ---------- mobile polish ---------- */
 @media (max-width: 460px) {
   .watch-btn { padding: 7px 9px; }
-  .depth { opacity: 0.65; }
+  /* Keep the depth number crisp; only the gauge line fades back. */
+  .depth { opacity: 1; }
+  .depth__track { opacity: 0.65; }
   .watch-hud { bottom: 62px; max-width: calc(100vw - 16px); }
   .watch-hud__tools { max-width: 100%; overflow-x: auto; }
 }

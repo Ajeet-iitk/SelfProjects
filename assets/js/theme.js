@@ -61,7 +61,7 @@
       layer.style.setProperty("--ry", `${cy}px`);
       layer.innerHTML = "<i></i><i></i><i></i>";
       document.body.appendChild(layer);
-      setTimeout(() => layer.remove(), 1800);
+      setTimeout(() => layer.remove(), 3000);
     }
 
     if (typeof document.startViewTransition !== "function") {
