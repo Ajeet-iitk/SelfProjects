@@ -407,6 +407,7 @@ code {
   pointer-events: none;
   user-select: none;
   opacity: 0.82;
+  transform: scale(var(--gscale, 1));
   transition: opacity 0.55s ease, transform 0.55s var(--ease), filter 0.55s ease;
 }
 
@@ -449,7 +450,7 @@ code {
 
 .reef-growth--lichen {
   border-radius: 48% 52% 55% 45% / 58% 46% 54% 42%;
-  transform: rotate(var(--grot, 0deg));
+  transform: scale(var(--gscale, 1)) rotate(var(--grot, 0deg));
   background-image:
     radial-gradient(circle at 13% 62%, var(--growth-lichen-b) 0 2.3px, transparent 4.1px),
     radial-gradient(circle at 29% 32%, var(--growth-lichen-a) 0 2.7px, transparent 4.6px),
@@ -461,6 +462,17 @@ code {
     radial-gradient(circle at 54% 92%, var(--growth-lichen-a) 0 1.8px, transparent 3.3px),
     radial-gradient(circle at 82% 84%, var(--growth-lichen-d) 0 2.4px, transparent 4.3px);
   filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.25));
+}
+
+/* A faint crust under the spots keeps the cluster from reading as bubbles. */
+.reef-growth--lichen::before {
+  content: "";
+  position: absolute;
+  inset: -10%;
+  border-radius: inherit;
+  background: radial-gradient(ellipse at 50% 55%, var(--growth-lichen-c) 0 24%, transparent 70%);
+  opacity: 0.2;
+  filter: blur(1px);
 }
 
 .reef-growth--barnacle {
@@ -522,6 +534,15 @@ code {
   }
   .reef-growth--seagrass svg {
     animation: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .reef-growth--lichen {
+    --gscale: 0.72;
+  }
+  .reef-growth--barnacle {
+    --gscale: 0.8;
   }
 }
 
