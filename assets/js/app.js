@@ -10,8 +10,10 @@
      1. explicit `thumb:` in projects.js
      2. thumbnails/<slug>.{webp,png,jpg,jpeg,gif}
      3. thumbnails/<repo-name>.{...}
-     4. GitHub's own social preview image for the repo
-     5. generated gradient placeholder with initials
+     4. screenshots/website.jpg (or the other names in REPO_SHOTS) inside
+        the repository itself, served straight from raw.githubusercontent
+     5. GitHub's own social preview image for the repo
+     6. generated gradient placeholder with initials
 
    No dependencies. Works from file:// and from GitHub Pages.
    ========================================================================== */
@@ -27,6 +29,21 @@
   const MAX_DISCOVERED = Number(CFG.maxAutoProjects) || 300;
   const REPOS_PER_PAGE = 100;
   const MAX_REPO_PAGES = 5; // up to 500 public repositories
+  const RAW_HOST = "raw.githubusercontent.com";
+
+  /* Screenshot files looked up inside each repository, in order. Almost
+     every repo keeps a 1000x625 website shot at screenshots/website.jpg;
+     the rest covers renamed folders and the odd preview image. */
+  const REPO_SHOTS = [
+    "screenshots/website.jpg",
+    "screenshots/website.png",
+    "screenshots/website.webp",
+    "screenshots/screenshot.jpg",
+    "screenshots/preview.jpg",
+    "screenshots/gameplay.jpg",
+    "screenshots/menu.jpg",
+    "assets/img/preview.jpg",
+  ];
 
   /* Repositories the visitor (or the owner) does not want auto-added. */
   const EXCLUDE = new Set(
@@ -437,9 +454,25 @@
     const exts = ["jpg", "png", "webp", "gif"];
     const names = Array.from(new Set([p.slug, p.repo.toLowerCase(), p.repo]));
 
+    const local = [];
     for (const name of names) {
-      for (const ext of exts) urls.push(`${THUMB_DIR}/${name}.${ext}`);
+      for (const ext of exts) local.push(`${THUMB_DIR}/${name}.${ext}`);
     }
+
+    // Every project repository keeps a shot of its live site in a screenshot
+    // folder. Pull it straight from GitHub so a new screenshot appears on the
+    // shelf without copying files into /thumbnails.
+    const repo = [];
+    if (p.owner && p.repo) {
+      const base = `https://${RAW_HOST}/${p.owner}/${p.repo}/HEAD/`;
+      for (const file of REPO_SHOTS) repo.push(base + file);
+    }
+
+    // Discovered repos almost always carry their own screenshot, so ask
+    // GitHub first and skip four pointless local 404s. Curated projects keep
+    // their hand-picked local thumbnail ahead of the network.
+    if (p.discovered) urls.push(...repo, ...local);
+    else urls.push(...local, ...repo);
 
     // GitHub's generated social preview — always exists for public repos.
     if (!p.skipOg) {
@@ -543,19 +576,19 @@
     c.img.src = url;
   }
 
-  /* Discovered repositories resolve their social preview only when their
-     card is near the viewport, two at a time. Forty simultaneous requests
-     would otherwise hit GitHub's image rate limit. */
+  /* Discovered repositories resolve their screenshot only when their card is
+     near the viewport, a few at a time. The slow drip keeps GitHub happy when
+     forty cards appear at once. */
   const thumbQueue = [];
   let thumbActive = 0;
 
   function pumpThumbQueue() {
-    while (thumbActive < 2 && thumbQueue.length) {
+    while (thumbActive < 6 && thumbQueue.length) {
       const p = thumbQueue.shift();
       thumbActive += 1;
       Promise.resolve(loadThumbnail(p)).finally(() => {
         thumbActive -= 1;
-        setTimeout(pumpThumbQueue, 180);
+        setTimeout(pumpThumbQueue, 50);
       });
     }
   }

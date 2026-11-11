@@ -20,8 +20,9 @@
          year:      2025                     // optional
        }
 
-   Thumbnails are found by name, so normally you don't set `thumb` at all.
-   Save an image as  thumbnails/<repo-name>.png  (or .jpg / .webp).
+   Thumbnails are automatic: the shelf uses screenshots/website.jpg from the
+   project repository itself. To override it, save an image as
+   thumbnails/<repo-name>.png  (or .jpg / .webp) and you don't need `thumb`.
    ========================================================================== */
 
 window.PORTFOLIO = {

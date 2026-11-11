@@ -191,7 +191,19 @@ If none of those exist, the card simply shows **Code** only — nothing breaks.
 
 ## Thumbnails
 
-Put screenshots in `thumbnails/`. Naming is automatic — no code changes:
+Each project repository should keep a shot of its live site at
+`screenshots/website.jpg`. The shelf finds it automatically, straight from GitHub — no
+copying files here and no code changes:
+
+```
+<repo>/screenshots/website.jpg      ← preferred, 1000 × 625 works well
+<repo>/screenshots/website.png
+<repo>/screenshots/gameplay.jpg     ← used when there is no website shot
+<repo>/assets/img/preview.jpg       ← legacy location, also checked
+```
+
+To override that, or for a repo without a screenshot folder, drop a file in `thumbnails/`.
+Naming is automatic:
 
 ```
 thumbnails/indian-parliament.jpg     ← kebab-case of the repo name  (preferred)
