@@ -38,6 +38,10 @@ foreground layer where two idle cleaners hover, ready to scrape growth off the p
   while one diver drops food for the school. No HUD panel covers the water.
 - **Cursor ripples** — moving the pointer leaves expanding rings, and clicking makes a
   bigger splash with a small burst of bubbles.
+- **Bubble storms** — shake a phone, or whip the cursor across Marine Watch, and the
+  whole screen fills with rising bubbles to the sound of `assets/audio/bubbles.mp3`.
+  The burst follows the click-sound switch and volume in the music panel, and reduced
+  motion keeps only the sound.
 - **Creatures that notice the pointer** — small fish scatter, sharks turn and trail your
   cursor, turtles dart away, whales ease toward your depth and an anglerfish leans its lure
   toward you. Clicking startles anything nearby.
@@ -72,6 +76,10 @@ playing, the page still scrolls, and the diving crew becomes a documentary unit 
 viewfinder frame around the water. If you leave Marine Watch at the surface, the swimmer also
 releases food so the school gathers in front of the camera.
 
+Whip the cursor across the water here and the screen fills with rising bubbles. On a phone the
+same burst answers a shake; iOS asks for motion access on the first clean tap. Shaking works
+outside Marine Watch too.
+
 ---
 
 ## Files
@@ -82,7 +90,7 @@ portfolio/
 ├── .nojekyll                   tells GitHub Pages to serve files as-is
 ├── assets/
 │   ├── css/style.css           all styling
-│   ├── audio/                  background track
+│   ├── audio/                  background track + water effects
 │   ├── favicon.svg             fish favicon (also linked from index.html)
 │   ├── favicon-180.png         Apple touch icon
 │   └── js/
@@ -94,6 +102,7 @@ portfolio/
 │       ├── watch.js            Marine Watch mode, fishing HUD + documentary
 │       ├── depth.js            depth meter / ocean zones
 │       ├── float.js            floating interface (bob + pointer reactions)
+│       ├── burst.js            bubble storm on phone shake / fast cursor
 │       └── theme.js            reef / deep-sea theme toggle + water ripple
 ├── thumbnails/                 ← drop screenshots here
 │   └── README.md               naming rules
