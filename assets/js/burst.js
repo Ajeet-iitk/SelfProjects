@@ -1,11 +1,8 @@
 /* ==========================================================================
    Bubble burst
-   Two gestures fill the screen with rising bubbles and play a short
-   underwater rush:
-
-     - shaking a phone (devicemotion, with iOS permission requested on the
-       first clean tap)
-     - a heavy, fast sweep of the mouse anywhere on the page
+   Shaking a phone (devicemotion, with iOS permission requested on the first
+   clean tap) fills the screen with rising bubbles and plays a short
+   underwater rush. It is mobile only: moving the mouse never triggers it.
 
    The canvas sits above the page but below the controls, never catches a
    pointer event, and pauses itself the moment the last bubble leaves.
@@ -379,85 +376,6 @@
       );
     }
   }
-
-  // Heavy cursor movement anywhere on a desktop: a genuine shake. Quick flicks
-  // and normal navigating never fire it. The pointer has to stay very fast for
-  // about half a second AND change direction several times, like wiggling the
-  // mouse back and forth. Touch drags are ignored so scrolling never fires it.
-  const FAST_PX_S = 2600; // px/s that counts as "violent"
-  const ENERGY_NEEDED = 520; // ms of sustained violent movement
-  const REVERSALS_NEEDED = 4; // direction flips within that time
-
-  let px = 0;
-  let py = 0;
-  let pt = 0;
-  let lvx = 0;
-  let lvy = 0;
-  let speed = 0;
-  let energy = 0;
-  let reversals = 0;
-
-  function resetShake() {
-    energy = 0;
-    reversals = 0;
-    speed = 0;
-    lvx = lvy = 0;
-  }
-
-  window.addEventListener(
-    "pointermove",
-    (e) => {
-      if (e.pointerType === "touch") {
-        px = py = pt = 0;
-        resetShake();
-        return;
-      }
-
-      const now = performance.now();
-      if (!pt) {
-        px = e.clientX;
-        py = e.clientY;
-        pt = now;
-        return;
-      }
-
-      const dt = Math.max(1, now - pt);
-      const dx = e.clientX - px;
-      const dy = e.clientY - py;
-      px = e.clientX;
-      py = e.clientY;
-      pt = now;
-
-      if (dt > 90) {
-        resetShake();
-        return;
-      }
-
-      // px per second, smoothed so one jittery sample cannot fire it.
-      const v = (Math.hypot(dx, dy) / dt) * 1000;
-      speed = speed * 0.6 + v * 0.4;
-
-      if (speed < FAST_PX_S) {
-        // calm movement drains the built-up energy quickly
-        energy = Math.max(0, energy - dt * 2.5);
-        if (energy === 0) reversals = 0;
-        return;
-      }
-
-      energy += dt;
-
-      // a direction flip: this move points against the previous fast move
-      if (lvx * dx + lvy * dy < 0) reversals += 1;
-      lvx = dx;
-      lvy = dy;
-
-      if (energy >= ENERGY_NEEDED && reversals >= REVERSALS_NEEDED) {
-        resetShake();
-        burst();
-      }
-    },
-    { passive: true }
-  );
 
   // Small hook for tests and for anything else that wants the effect.
   window.BubbleBurst = {
