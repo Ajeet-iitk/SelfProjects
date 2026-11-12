@@ -24,7 +24,7 @@
   // Matches the trimmed mp3 (3.213 s). Bubbles fade out over FADE_MS.
   const BURST_MS = 3200;
   const FADE_MS = 650;
-  const COOLDOWN_MS = 1400;
+  const COOLDOWN_MS = 4000;
   const reduce = window.matchMedia("(prefers-reduced-motion: reduce)");
 
   const body = document.body;
@@ -380,22 +380,36 @@
     }
   }
 
-  // Heavy cursor movement anywhere on a desktop. Touch drags are ignored, so
-  // scrolling a phone never fires it, and the pointer must be genuinely fast
-  // for two samples in a row so ordinary navigating stays calm.
+  // Heavy cursor movement anywhere on a desktop: a genuine shake. Quick flicks
+  // and normal navigating never fire it. The pointer has to stay very fast for
+  // about half a second AND change direction several times, like wiggling the
+  // mouse back and forth. Touch drags are ignored so scrolling never fires it.
+  const FAST_PX_S = 2600; // px/s that counts as "violent"
+  const ENERGY_NEEDED = 520; // ms of sustained violent movement
+  const REVERSALS_NEEDED = 4; // direction flips within that time
+
   let px = 0;
   let py = 0;
   let pt = 0;
+  let lvx = 0;
+  let lvy = 0;
   let speed = 0;
-  let fast = 0;
+  let energy = 0;
+  let reversals = 0;
+
+  function resetShake() {
+    energy = 0;
+    reversals = 0;
+    speed = 0;
+    lvx = lvy = 0;
+  }
 
   window.addEventListener(
     "pointermove",
     (e) => {
       if (e.pointerType === "touch") {
         px = py = pt = 0;
-        speed = 0;
-        fast = 0;
+        resetShake();
         return;
       }
 
@@ -408,23 +422,37 @@
       }
 
       const dt = Math.max(1, now - pt);
-      const dist = Math.hypot(e.clientX - px, e.clientY - py);
+      const dx = e.clientX - px;
+      const dy = e.clientY - py;
       px = e.clientX;
       py = e.clientY;
       pt = now;
 
-      // px per second, smoothed so one jittery sample cannot fire it.
-      const v = (dist / dt) * 1000;
-      speed = dt > 90 ? 0 : speed * 0.65 + v * 0.35;
-
-      if (speed < 1650) {
-        fast = Math.max(0, fast - 1);
+      if (dt > 90) {
+        resetShake();
         return;
       }
 
-      fast += 1;
-      if (fast >= 2) {
-        fast = 0;
+      // px per second, smoothed so one jittery sample cannot fire it.
+      const v = (Math.hypot(dx, dy) / dt) * 1000;
+      speed = speed * 0.6 + v * 0.4;
+
+      if (speed < FAST_PX_S) {
+        // calm movement drains the built-up energy quickly
+        energy = Math.max(0, energy - dt * 2.5);
+        if (energy === 0) reversals = 0;
+        return;
+      }
+
+      energy += dt;
+
+      // a direction flip: this move points against the previous fast move
+      if (lvx * dx + lvy * dy < 0) reversals += 1;
+      lvx = dx;
+      lvy = dy;
+
+      if (energy >= ENERGY_NEEDED && reversals >= REVERSALS_NEEDED) {
+        resetShake();
         burst();
       }
     },
