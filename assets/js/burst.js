@@ -309,6 +309,8 @@
   }
 
   function armShake() {
+    // Phones and tablets only. Laptops with motion sensors must not react.
+    if (!window.matchMedia("(pointer: coarse)").matches) return;
     if (motion.armed || typeof window.DeviceMotionEvent === "undefined") return;
     motion.armed = true;
     window.addEventListener("devicemotion", onMotion, { passive: true });
