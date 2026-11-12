@@ -5,10 +5,12 @@
 
      - shaking a phone (devicemotion, with iOS permission requested on the
        first clean tap)
-     - whipping the cursor across the water while Marine Watch is on
+     - a heavy, fast sweep of the mouse anywhere on the page
 
    The canvas sits above the page but below the controls, never catches a
    pointer event, and pauses itself the moment the last bubble leaves.
+   assets/audio/bubbles.mp3 is trimmed to BURST_MS so it ends exactly as the
+   bubbles fade, with a short gain ramp so the cut is never audible.
    The sound follows the click-sound switch and volume in the music panel,
    so muting effects silences this too.
    ========================================================================== */
@@ -19,10 +21,13 @@
   const SRC = "assets/audio/bubbles.mp3";
   const SFX_ON_KEY = "hobby-arcade:drip:on";
   const SFX_VOL_KEY = "hobby-arcade:drip:vol";
+  // Matches the trimmed mp3 (3.213 s). Bubbles fade out over FADE_MS.
+  const BURST_MS = 3200;
+  const FADE_MS = 650;
+  const COOLDOWN_MS = 1400;
   const reduce = window.matchMedia("(prefers-reduced-motion: reduce)");
 
   const body = document.body;
-  const watching = () => body.classList.contains("is-watching");
   const rand = (a, b) => a + Math.random() * (b - a);
 
   /* ------------------------------------------------------------------ */
@@ -72,16 +77,23 @@
     const level = sfxLevel();
     if (level <= 0) return;
     const gain = Math.min(1.5, level * level * 2.4);
+    const fade = FADE_MS / 1000;
 
     if (actx && buffer) {
       try {
         if (actx.state === "suspended") actx.resume();
+        const now = actx.currentTime + 0.01;
+        const end = now + buffer.duration;
         const src = actx.createBufferSource();
         const node = actx.createGain();
         src.buffer = buffer;
-        node.gain.value = gain;
+        // Hold the level, then ramp to silence across the last FADE_MS so
+        // the trimmed tail and the fading bubbles end together.
+        node.gain.setValueAtTime(gain, now);
+        node.gain.setValueAtTime(gain, Math.max(now, end - fade));
+        node.gain.linearRampToValueAtTime(0.0001, end);
         src.connect(node).connect(actx.destination);
-        src.start(0);
+        src.start(now);
         return;
       } catch {
         /* fall through to the element */
@@ -93,9 +105,29 @@
       fallback.volume = Math.min(1, gain);
       const p = fallback.play();
       if (p && p.catch) p.catch(() => {});
+      fadeElement(fallback, FADE_MS / 1000);
     } catch {
       /* ignore */
     }
+  }
+
+  // The <audio> fallback has no gain envelope, so ramp its volume by hand.
+  let fadeTimer = 0;
+  function fadeElement(el, seconds) {
+    clearTimeout(fadeTimer);
+    const total = Number.isFinite(el.duration) && el.duration > 0 ? el.duration : BURST_MS / 1000;
+    const wait = Math.max(0, total - seconds) * 1000;
+    fadeTimer = setTimeout(() => {
+      const from = el.volume;
+      const started = performance.now();
+      const step = () => {
+        const p = Math.min(1, (performance.now() - started) / (seconds * 1000));
+        el.volume = from * (1 - p);
+        if (p < 1) fadeTimer = setTimeout(step, 40);
+        else el.pause();
+      };
+      step();
+    }, wait);
   }
 
   // Browsers only allow audible Web Audio after a gesture. Unlock on the
@@ -149,14 +181,18 @@
       particles.push({
         baseX: rand(-24, W + 24),
         x: 0,
-        y: rand(H * 0.32, H + r * 2),
+        y: rand(H * 0.25, H + r * 2),
         r,
-        vy: rand(150, 320) + r * 16,
+        // Slower than a real bubble plume so the screen stays full for the
+        // whole 3.2 s rather than emptying through the top early.
+        vy: rand(110, 235) + r * 12,
         sway: rand(4, 20),
         freq: rand(0.7, 2.1),
         phase: rand(0, Math.PI * 2),
         born: performance.now(),
-        life: rand(2.4, 4.2) * 1000,
+        // Every bubble is released at the same moment and fades out
+        // together, exactly when the trimmed sound ends.
+        life: BURST_MS + rand(-40, 40),
         alpha: 0,
       });
     }
@@ -186,7 +222,7 @@
       }
 
       const fadeIn = Math.min(1, age / 160);
-      const fadeOut = Math.min(1, (p.life - age) / 700);
+      const fadeOut = Math.min(1, (p.life - age) / FADE_MS);
       p.alpha = Math.max(0, Math.min(fadeIn, fadeOut));
 
       ctx.globalAlpha = p.alpha * rimAlpha;
@@ -216,7 +252,7 @@
 
   function burst() {
     const now = performance.now();
-    if (now - lastBurst < 900) return;
+    if (now - lastBurst < COOLDOWN_MS) return;
     lastBurst = now;
 
     play();
@@ -344,8 +380,9 @@
     }
   }
 
-  // Fast cursor sweep while Marine Watch is on. Touch drags are ignored, so
-  // scrolling a phone never fires it.
+  // Heavy cursor movement anywhere on a desktop. Touch drags are ignored, so
+  // scrolling a phone never fires it, and the pointer must be genuinely fast
+  // for two samples in a row so ordinary navigating stays calm.
   let px = 0;
   let py = 0;
   let pt = 0;
@@ -355,7 +392,7 @@
   window.addEventListener(
     "pointermove",
     (e) => {
-      if (e.pointerType === "touch" || !watching()) {
+      if (e.pointerType === "touch") {
         px = py = pt = 0;
         speed = 0;
         fast = 0;
@@ -380,7 +417,7 @@
       const v = (dist / dt) * 1000;
       speed = dt > 90 ? 0 : speed * 0.65 + v * 0.35;
 
-      if (speed < 2000) {
+      if (speed < 1650) {
         fast = Math.max(0, fast - 1);
         return;
       }
