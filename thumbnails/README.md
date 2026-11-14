@@ -40,3 +40,15 @@ powershell -ExecutionPolicy Bypass -File tools/make-thumbnail.ps1 `
 ```
 
 Writes `thumbnails/my-new-game.jpg` at 1280 × 800 using headless Chrome or Edge.
+
+## Automatic screenshots
+
+You do not have to copy screenshots here. Every hour a GitHub Action
+(`.github/workflows/sync-repos.yml`) looks inside each public repository for a
+screenshot and saves the result in `assets/data/thumbs.json`. It checks, in order:
+
+1. images used in the repo's `README.md` (screenshot-style names win over badges and logos)
+2. image files in the repo, favouring folders like `screenshots/`, `docs/`, `images/`, `assets/`
+   and names like `screenshot`, `preview`, `demo`, `cover`, `banner`
+
+A file in this `thumbnails/` folder named after the repo still wins over the automatic one.

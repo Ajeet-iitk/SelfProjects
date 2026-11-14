@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: [".github/workflows/sync-repos.yml"]
+    paths: [".github/workflows/sync-repos.yml", ".github/scripts/**"]
 permissions:
   contents: write
 jobs:
@@ -26,9 +26,14 @@ jobs:
             [ "$n" -lt 100 ] && break
           done
           jq -s 'add' all.json > assets/data/repos.json
+      - name: Find a screenshot for every repo
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OWNER: ${{ github.repository_owner }}
+        run: python3 .github/scripts/find_thumbs.py
       - name: Commit if changed
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add assets/data/repos.json
-          git diff --cached --quiet || (git commit -m "Update repo list" && git push)
+          git add assets/data/repos.json assets/data/thumbs.json
+          git diff --cached --quiet || (git commit -m "Update repo list and thumbnails" && git push)

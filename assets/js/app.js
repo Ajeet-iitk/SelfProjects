@@ -447,6 +447,18 @@
   /* thumbnails                                                          */
   /* ------------------------------------------------------------------ */
 
+  /* Screenshots found inside each repository (README images, screenshots/
+     folders...) by the sync Action. A map of repo name -> image URL. */
+  let thumbMap = {};
+  const thumbsReady = (async () => {
+    try {
+      const res = await fetch("assets/data/thumbs.json", { cache: "no-cache" });
+      if (res.ok) thumbMap = (await res.json()) || {};
+    } catch {
+      /* no map yet (first run, or opened from file://) */
+    }
+  })();
+
   function thumbCandidates(p) {
     const urls = [];
     if (p.thumb) urls.push(p.thumb);
@@ -473,6 +485,10 @@
     // their hand-picked local thumbnail ahead of the network.
     if (p.discovered) urls.push(...repo, ...local);
     else urls.push(...local, ...repo);
+
+    // A screenshot found inside the repository itself.
+    const found = thumbMap[p.repo.toLowerCase()];
+    if (found) urls.push(found);
 
     // GitHub's generated social preview — always exists for public repos.
     if (!p.skipOg) {
@@ -553,6 +569,7 @@
   }
 
   async function loadThumbnail(p) {
+    await thumbsReady;
     const url = await firstImage(thumbCandidates(p));
     const c = p.card;
     if (!c) return;
