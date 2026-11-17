@@ -3449,6 +3449,7 @@ body.is-watching .nav {
 }
 
 .squid__arm {
+  z-index: 1;
   position: absolute;
   inset: 0;
   width: 100%;
@@ -3457,61 +3458,65 @@ body.is-watching .nav {
 }
 
 .squid__skin {
-  fill: none;
-  stroke: #5a1f4f;
-  stroke-width: 13;
-  stroke-linecap: round;
-  filter: drop-shadow(0 0 8px rgba(255, 107, 157, 0.5));
+  fill: url(#sqSkin);
+  filter: drop-shadow(0 0 10px rgba(255, 107, 157, 0.55));
 }
 
-.squid__suckers {
+.squid__edge {
   fill: none;
-  stroke: rgba(255, 190, 215, 0.85);
-  stroke-width: 4;
+  stroke: rgba(255, 190, 220, 0.5);
+  stroke-width: 1.2;
   stroke-linecap: round;
+}
+
+.squid__suckers circle {
+  fill: rgba(255, 214, 232, 0.8);
+  stroke: rgba(120, 30, 90, 0.6);
+  stroke-width: 0.8;
 }
 
 .squid__body {
+  z-index: 2;
   position: absolute;
-  right: -90px;
-  top: 0;
-  bottom: 0;
-  width: 150px;
-  background: radial-gradient(ellipse at 100% 50%, rgba(60, 14, 56, 0.95), rgba(60, 14, 56, 0) 70%);
   opacity: 0;
-  transform: translateX(40px);
-  transition: opacity 0.6s, transform 0.6s var(--ease);
+  transform: translateX(90px);
+  transition: opacity 0.6s ease, transform 0.8s var(--ease);
+  filter: drop-shadow(0 0 22px rgba(255, 107, 157, 0.35));
+}
+
+.squid__body > svg { width: 100%; height: 100%; display: block; overflow: visible; }
+
+.squid__spots circle { animation: squidSpot 3s ease-in-out infinite; }
+.squid__spots circle:nth-child(2n) { animation-delay: 0.9s; }
+.squid__spots circle:nth-child(3n) { animation-delay: 1.7s; }
+
+@keyframes squidSpot {
+  0%, 100% { opacity: 0.25; }
+  50% { opacity: 0.95; }
 }
 
 .squid__eye {
   position: absolute;
-  right: 12px;
-  width: 34px;
-  height: 34px;
-  margin-top: -17px;
+  width: 44px;
+  height: 44px;
   padding: 0;
-  border: 2px solid #ffd6e8;
+  border: 0;
   border-radius: 50%;
-  background: radial-gradient(circle at 35% 35%, #fff, #ff6b9d 45%, #5a1f4f 100%);
-  box-shadow: 0 0 22px rgba(255, 107, 157, 0.9);
+  background: transparent;
   cursor: pointer;
-  opacity: 0;
-  transform: scale(0.4);
   pointer-events: none;
-  transition: opacity 0.5s, transform 0.5s var(--ease);
 }
 
 .squid.is-out .squid__body { opacity: 1; transform: none; }
 
 .squid.is-out .squid__eye {
-  opacity: 1;
-  transform: scale(1);
   pointer-events: auto;
-  animation: eyePulse 1.1s ease-in-out infinite;
+  box-shadow: 0 0 0 0 rgba(255, 158, 196, 0.8);
+  animation: eyePulse 1.3s ease-out infinite;
 }
 
 @keyframes eyePulse {
-  50% { box-shadow: 0 0 34px rgba(255, 107, 157, 1); }
+  to { box-shadow: 0 0 0 22px rgba(255, 158, 196, 0); }
 }
 
 /* a swiped bubble tumbles away, then floats back in */
@@ -3572,11 +3577,6 @@ body.is-watching .nav {
 @keyframes inkFade {
   0%, 55% { opacity: 1; }
   100% { opacity: 0; }
-}
-
-@media (max-width: 640px) {
-  .squid__eye { width: 28px; height: 28px; margin-top: -14px; right: 8px; }
-  .squid__skin { stroke-width: 10; }
 }
 
 @media (prefers-reduced-motion: reduce) {

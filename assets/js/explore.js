@@ -232,31 +232,88 @@
 
   /* ----- the giant squid ------------------------------------------------
      Now and then, while the Abyss band is on screen, a squid slides in from
-     the right edge, a tentacle sweeps across and swipes one bubble away (it
-     floats back after a few seconds). Click its glowing eye while it is out
-     and it lets off an ink cloud that fades the page out and back. */
+     the right edge, one long tentacle uncoils across the band and swipes a
+     bubble away (it floats back after a few seconds). Click its glowing eye
+     while it is out and it lets off an ink cloud that fades the page out and
+     back. The tentacle is drawn as a tapered, glowing shape with suckers, so
+     it stays crisp at any size. */
   const abyss = host.querySelector('[data-zone="abyss"]');
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 
   if (abyss && !reduceMotion.matches) {
     const NS = "http://www.w3.org/2000/svg";
+    const BODY_W = 260;
+    const BODY_H = 168;
+    const BODY_OVERHANG = 80; // how far the body sits past the right edge
+    const MOUTH = { x: 62, y: 88 }; // where the long tentacle leaves the head
+
     const layer = document.createElement("div");
     layer.className = "squid";
     layer.innerHTML = `
-      <div class="squid__body"></div>
-      <button type="button" class="squid__eye" tabindex="-1" aria-label="Giant squid eye. Click to be inked."></button>
-      <svg class="squid__arm" aria-hidden="true"></svg>`;
+      <div class="squid__body" style="width:${BODY_W}px;height:${BODY_H}px">
+        <svg viewBox="0 0 ${BODY_W} ${BODY_H}" aria-hidden="true">
+          <defs>
+            <linearGradient id="sqMantle" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#7d2a68"/><stop offset="1" stop-color="#2a0b2e"/>
+            </linearGradient>
+            <radialGradient id="sqIris" cx="0.4" cy="0.35" r="0.8">
+              <stop offset="0" stop-color="#fff3b0"/><stop offset="0.5" stop-color="#ff9ec4"/><stop offset="1" stop-color="#b3205f"/>
+            </radialGradient>
+          </defs>
+          <g class="squid__shape">
+            <!-- fins and mantle (the far end sits past the band edge) -->
+            <path d="M150 30 C180 8 230 6 262 34 C236 40 190 46 150 54Z" fill="#5a1d52"/>
+            <path d="M150 138 C180 160 230 162 262 134 C236 128 190 122 150 114Z" fill="#5a1d52"/>
+            <path d="M104 86 C112 28 196 14 266 48 L266 124 C196 158 112 144 104 86Z" fill="url(#sqMantle)"/>
+            <!-- skin spots that glow slowly -->
+            <g class="squid__spots" fill="#ff7fb2">
+              <circle cx="150" cy="58" r="3.2"/><circle cx="176" cy="48" r="2.6"/><circle cx="204" cy="56" r="3.6"/>
+              <circle cx="160" cy="84" r="2.4"/><circle cx="190" cy="82" r="3"/><circle cx="222" cy="78" r="2.4"/>
+              <circle cx="154" cy="112" r="3"/><circle cx="182" cy="118" r="2.4"/><circle cx="212" cy="108" r="3.2"/>
+            </g>
+            <!-- short arms around the mouth -->
+            <g fill="none" stroke="#5f2158" stroke-linecap="round">
+              <path d="M70 96 C46 104 34 122 24 144" stroke-width="7"/>
+              <path d="M76 104 C60 120 56 140 52 160" stroke-width="6"/>
+              <path d="M70 72 C44 66 30 52 20 32" stroke-width="7"/>
+              <path d="M78 66 C62 50 58 30 54 10" stroke-width="6"/>
+              <path d="M82 112 C80 132 90 148 100 162" stroke-width="5"/>
+            </g>
+            <!-- head -->
+            <ellipse cx="100" cy="86" rx="38" ry="34" fill="#4b1745"/>
+            <!-- eye -->
+            <circle cx="96" cy="78" r="21" fill="#12040f" stroke="#ff9ec4" stroke-width="1.5"/>
+            <circle cx="96" cy="78" r="16" fill="url(#sqIris)"/>
+            <ellipse cx="96" cy="78" rx="11" ry="5.5" fill="#0a0208"/>
+            <circle cx="90" cy="72" r="3.4" fill="#fff" opacity="0.9"/>
+          </g>
+        </svg>
+        <button type="button" class="squid__eye" tabindex="-1" aria-label="Giant squid eye. Click to be inked."></button>
+      </div>
+      <svg class="squid__arm" aria-hidden="true">
+        <defs>
+          <linearGradient id="sqSkin" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0" stop-color="#4b1745"/><stop offset="0.6" stop-color="#8a2a6c"/><stop offset="1" stop-color="#ff8fbd"/>
+          </linearGradient>
+        </defs>
+        <path class="squid__skin" d=""/>
+        <path class="squid__edge" d=""/>
+        <g class="squid__suckers"></g>
+      </svg>`;
     abyss.appendChild(layer);
 
+    const body = layer.querySelector(".squid__body");
     const eye = layer.querySelector(".squid__eye");
     const arm = layer.querySelector(".squid__arm");
+    const skin = arm.querySelector(".squid__skin");
+    const edge = arm.querySelector(".squid__edge");
+    const suckerG = arm.querySelector(".squid__suckers");
     const abyssOrbs = [...abyss.querySelectorAll(".orb")];
 
     let inView = false;
     let busy = false;
     let timer = 0;
-    let armPath = null;
-    let dotPath = null;
+    let curve = null; // sampled centre line of the current tentacle
 
     new IntersectionObserver(
       (entries) => {
@@ -283,6 +340,89 @@
     }
 
     const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const ease = (t) => 1 - Math.pow(1 - t, 3);
+
+    // cubic bezier sampling
+    function bez(p0, p1, p2, p3, t) {
+      const u = 1 - t;
+      return {
+        x: u * u * u * p0.x + 3 * u * u * t * p1.x + 3 * u * t * t * p2.x + t * t * t * p3.x,
+        y: u * u * u * p0.y + 3 * u * u * t * p1.y + 3 * u * t * t * p2.y + t * t * t * p3.y,
+      };
+    }
+
+    function sampleCurve(p0, p1, p2, p3, n) {
+      const pts = [];
+      for (let i = 0; i <= n; i += 1) pts.push(bez(p0, p1, p2, p3, i / n));
+      // a small hook at the very tip, like a tentacle club curling
+      const last = pts[pts.length - 1];
+      const prev = pts[pts.length - 4];
+      const a = Math.atan2(last.y - prev.y, last.x - prev.x);
+      for (let i = 1; i <= 10; i += 1) {
+        const k = i / 10;
+        const ang = a + k * 2.1;
+        const r = 22 * (1 - k * 0.6);
+        pts.push({ x: last.x + Math.cos(ang) * r * k, y: last.y + Math.sin(ang) * r * k * (k < 1 ? 1 : 1) });
+      }
+      return pts;
+    }
+
+    /** Draws the tentacle up to `progress` (0..1) as a tapered shape. */
+    function drawArm(progress) {
+      if (!curve) return;
+      const upto = Math.max(2, Math.floor(curve.length * progress));
+      const pts = curve.slice(0, upto);
+      const left = [];
+      const right = [];
+      const maxW = 11;
+      const minW = 2.2;
+
+      for (let i = 0; i < pts.length; i += 1) {
+        const a = pts[Math.max(0, i - 1)];
+        const b = pts[Math.min(pts.length - 1, i + 1)];
+        let nx = -(b.y - a.y);
+        let ny = b.x - a.x;
+        const l = Math.hypot(nx, ny) || 1;
+        nx /= l;
+        ny /= l;
+        const t = i / (pts.length - 1 || 1);
+        const w = minW + (maxW - minW) * Math.pow(1 - t, 1.15);
+        left.push([pts[i].x + nx * w, pts[i].y + ny * w]);
+        right.push([pts[i].x - nx * w, pts[i].y - ny * w]);
+      }
+
+      let d = `M ${left[0][0].toFixed(1)} ${left[0][1].toFixed(1)}`;
+      for (let i = 1; i < left.length; i += 1) d += ` L ${left[i][0].toFixed(1)} ${left[i][1].toFixed(1)}`;
+      for (let i = right.length - 1; i >= 0; i -= 1) d += ` L ${right[i][0].toFixed(1)} ${right[i][1].toFixed(1)}`;
+      d += " Z";
+      skin.setAttribute("d", d);
+
+      let e = `M ${left[0][0].toFixed(1)} ${left[0][1].toFixed(1)}`;
+      for (let i = 1; i < left.length; i += 1) e += ` L ${left[i][0].toFixed(1)} ${left[i][1].toFixed(1)}`;
+      edge.setAttribute("d", e);
+
+      // suckers along the underside, smaller toward the tip
+      let s = "";
+      for (let i = 4; i < pts.length - 3; i += 3) {
+        const t = i / (pts.length - 1);
+        const r = (1 - t) * 3.6 + 1.1;
+        s += `<circle cx="${right[i][0].toFixed(1)}" cy="${right[i][1].toFixed(1)}" r="${r.toFixed(1)}"/>`;
+      }
+      suckerG.innerHTML = s;
+    }
+
+    function animateProgress(from, to, ms, easing) {
+      return new Promise((resolve) => {
+        const t0 = performance.now();
+        const step = (now) => {
+          const k = Math.min(1, (now - t0) / ms);
+          drawArm(from + (to - from) * easing(k));
+          if (k < 1) requestAnimationFrame(step);
+          else resolve();
+        };
+        requestAnimationFrame(step);
+      });
+    }
 
     async function attack() {
       const free = abyssOrbs.filter((o) => !o.classList.contains("is-swiped") && !o.classList.contains("is-back"));
@@ -295,54 +435,45 @@
       const tx = tr.left + tr.width / 2 - zr.left;
       const ty = tr.top + tr.height / 2 - zr.top;
 
-      const sx = zr.width + 30;
-      const sy = Math.min(zr.height - 40, Math.max(40, ty + (Math.random() * 120 - 60)));
-      const ex = tx - 80;
-      const ey = ty + (Math.random() * 40 - 20);
-      const dx = sx - ex;
+      // place the body so its head sits inside the band, level with the target
+      const headY = Math.min(zr.height - 60, Math.max(70, ty + (Math.random() * 90 - 45)));
+      const bodyLeft = zr.width + BODY_OVERHANG - BODY_W;
+      body.style.left = `${bodyLeft}px`;
+      body.style.top = `${headY - MOUTH.y}px`;
+      eye.style.left = "74px";
+      eye.style.top = "56px";
 
+      const p0 = { x: bodyLeft + MOUTH.x, y: headY };
+      const p3 = { x: tx - 38, y: ty };
+      const dx = p0.x - p3.x;
+      const p1 = { x: p0.x - dx * 0.28, y: p0.y - 110 };
+      const p2 = { x: p3.x + dx * 0.34, y: p3.y + 100 };
+      curve = sampleCurve(p0, p1, p2, p3, 56);
       arm.setAttribute("viewBox", `0 0 ${zr.width} ${zr.height}`);
-      arm.innerHTML = "";
-      armPath = document.createElementNS(NS, "path");
-      dotPath = document.createElementNS(NS, "path");
-      const d = `M ${sx} ${sy} C ${sx - dx * 0.3} ${sy - 90}, ${ex + dx * 0.4} ${ey + 90}, ${ex} ${ey}`;
-      armPath.setAttribute("d", d);
-      dotPath.setAttribute("d", d);
-      armPath.setAttribute("class", "squid__skin");
-      dotPath.setAttribute("class", "squid__suckers");
-      arm.append(armPath, dotPath);
+      drawArm(0);
 
-      const len = armPath.getTotalLength();
-      for (const p of [armPath, dotPath]) p.style.strokeDasharray = p === dotPath ? "1 11" : `${len}`;
-      armPath.style.strokeDashoffset = String(len);
-      dotPath.style.opacity = "0";
-
-      eye.style.top = `${sy}px`;
       layer.classList.add("is-out");
-      await wait(520);
+      await wait(650);
 
-      // reach across
-      armPath.animate([{ strokeDashoffset: len }, { strokeDashoffset: 0 }], { duration: 950, easing: "cubic-bezier(.3,.7,.3,1)", fill: "forwards" });
-      dotPath.style.opacity = "1";
-      dotPath.animate([{ clipPath: "inset(0 0 0 100%)" }, { clipPath: "inset(0 0 0 0)" }], { duration: 950, easing: "cubic-bezier(.3,.7,.3,1)", fill: "forwards" });
-      await wait(760);
+      await animateProgress(0.02, 0.86, 1100, ease);
 
-      // the swipe
+      // the swipe: the tip flicks through the bubble
       target.classList.remove("is-on");
       target.classList.add("is-swiped");
-      await wait(500);
+      await animateProgress(0.86, 1, 260, ease);
+      await wait(260);
 
       // pull back
-      armPath.animate([{ strokeDashoffset: 0 }, { strokeDashoffset: -len }], { duration: 800, easing: "ease-in", fill: "forwards" });
-      dotPath.animate([{ clipPath: "inset(0 0 0 0)" }, { clipPath: "inset(0 0 0 100%)" }], { duration: 800, easing: "ease-in", fill: "forwards" });
-      await wait(700);
-
+      await animateProgress(1, 0.02, 900, (k) => k * k);
+      drawArm(0);
       layer.classList.remove("is-out");
+      await wait(500);
+
       busy = false;
       schedule();
 
       // the bubble floats back after a few seconds
-      await wait(3500);
+      await wait(3200);
       target.classList.remove("is-swiped");
       target.classList.add("is-back");
       setTimeout(() => target.classList.remove("is-back"), 800);
