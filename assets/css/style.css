@@ -3199,3 +3199,243 @@ body.is-watching .nav {
   opacity: 0.45;
   background: var(--brine-barn) no-repeat center / contain;
 }
+
+/* ==========================================================================
+   Things to explore: the dive chart
+   ========================================================================== */
+.dive {
+  display: grid;
+  gap: 14px;
+}
+
+/* pinned note: stays in view while you browse the bubbles below it */
+.dive__panel {
+  --z: var(--mint);
+  position: sticky;
+  top: 74px;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border: 1px solid color-mix(in srgb, var(--z) 45%, transparent);
+  border-radius: 18px;
+  background: rgba(4, 18, 26, 0.78);
+  -webkit-backdrop-filter: blur(14px) saturate(150%);
+  backdrop-filter: blur(14px) saturate(150%);
+  box-shadow: 0 10px 40px -16px color-mix(in srgb, var(--z) 55%, transparent);
+  transition: border-color 0.4s, box-shadow 0.4s;
+}
+
+:root[data-theme="light"] .dive__panel { background: rgba(240, 252, 255, 0.82); }
+
+.dive__panel.is-swap .dive__ptext,
+.dive__panel.is-swap .dive__picon {
+  animation: diveSwap 0.45s var(--ease) both;
+}
+
+@keyframes diveSwap {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+
+.dive__picon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  color: var(--z);
+  background: color-mix(in srgb, var(--z) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--z) 55%, transparent);
+}
+
+.dive__picon svg { width: 26px; height: 26px; }
+
+.dive__ptext { min-width: 0; flex: 1; }
+
+.dive__pline { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+.dive__pline strong { font-size: 1.02rem; letter-spacing: -0.01em; }
+
+.dive__pline kbd {
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--z) 50%, transparent);
+  color: var(--z);
+  font: 0.66rem var(--font-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.dive__ptext p {
+  margin: 4px 0 0;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.dive__go {
+  flex: none;
+  padding: 9px 16px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--z) 60%, transparent);
+  background: color-mix(in srgb, var(--z) 16%, transparent);
+  color: var(--z);
+  font: 600 0.78rem var(--font-mono);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.2s, transform 0.2s;
+}
+
+.dive__go:hover { background: color-mix(in srgb, var(--z) 28%, transparent); transform: translateY(-1px); }
+.dive__go[hidden] { display: none; }
+
+/* each depth is a band of water that gets darker as you go down */
+.dive__zone {
+  position: relative;
+  overflow: hidden;
+  padding: 16px 14px 20px;
+  border-radius: 22px;
+  border: 1px solid color-mix(in srgb, var(--z) 22%, transparent);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--z) 11%, rgba(4, 22, 32, 0.6)), rgba(2, 10, 16, 0.55));
+  opacity: 0;
+  transform: translateY(26px);
+  transition: opacity 0.8s var(--ease), transform 0.8s var(--ease);
+}
+
+.dive__zone.is-in { opacity: 1; transform: none; }
+
+.dive__head {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin: 0 4px 6px;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.dive__depth { color: var(--z); font-weight: 600; }
+.dive__zname { color: var(--muted); }
+
+.dive__orbs {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 6px 4px;
+}
+
+/* the bubbles */
+.orb {
+  display: grid;
+  justify-items: center;
+  gap: 7px;
+  padding: 8px 4px;
+  border: 0;
+  background: none;
+  color: var(--text);
+  cursor: pointer;
+  animation: orbBob 5.5s ease-in-out var(--d, 0s) infinite;
+}
+
+@keyframes orbBob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-7px); }
+}
+
+.orb__bubble {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 68px;
+  height: 68px;
+  border-radius: 50%;
+  color: var(--z);
+  border: 1px solid color-mix(in srgb, var(--z) 50%, transparent);
+  background:
+    radial-gradient(circle at 30% 24%, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0.06) 38%, transparent 58%),
+    color-mix(in srgb, var(--z) 12%, transparent);
+  box-shadow: inset 0 0 18px color-mix(in srgb, var(--z) 22%, transparent), 0 6px 22px -10px color-mix(in srgb, var(--z) 70%, transparent);
+  transition: transform 0.3s var(--ease), box-shadow 0.3s, border-color 0.3s;
+}
+
+.orb__bubble svg { width: 28px; height: 28px; }
+
+.orb:hover .orb__bubble,
+.orb:focus-visible .orb__bubble { transform: scale(1.1); }
+
+.orb.is-on .orb__bubble {
+  transform: scale(1.14);
+  border-color: var(--z);
+  box-shadow: inset 0 0 20px color-mix(in srgb, var(--z) 40%, transparent), 0 0 28px color-mix(in srgb, var(--z) 55%, transparent);
+}
+
+.orb.is-on .orb__bubble::after {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: 50%;
+  border: 1px solid var(--z);
+  animation: orbRing 2s ease-out infinite;
+}
+
+@keyframes orbRing {
+  from { transform: scale(1); opacity: 0.7; }
+  to { transform: scale(1.7); opacity: 0; }
+}
+
+.orb__label {
+  font: 0.7rem/1.25 var(--font-mono);
+  text-align: center;
+  color: var(--muted);
+  transition: color 0.25s;
+}
+
+.orb.is-on .orb__label { color: var(--text); }
+
+/* a few slow bubbles rise through every band */
+.dive__bubble {
+  position: absolute;
+  left: var(--x);
+  bottom: -14px;
+  width: var(--s);
+  height: var(--s);
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--z) 55%, transparent);
+  pointer-events: none;
+  opacity: 0;
+  animation: diveRise var(--t) linear var(--d) infinite;
+}
+
+@keyframes diveRise {
+  0% { transform: translateY(0); opacity: 0; }
+  15% { opacity: 0.7; }
+  100% { transform: translateY(-260px); opacity: 0; }
+}
+
+@media (max-width: 640px) {
+  .dive__panel { top: 66px; padding: 11px 12px; gap: 10px; }
+  .dive__picon { width: 42px; height: 42px; }
+  .dive__picon svg { width: 22px; height: 22px; }
+  .dive__ptext p { font-size: 0.8rem; }
+  .dive__go { padding: 7px 11px; font-size: 0.7rem; white-space: normal; max-width: 108px; text-align: center; }
+  .dive__orbs { grid-template-columns: repeat(4, 1fr); }
+  .orb__bubble { width: 56px; height: 56px; }
+  .orb__bubble svg { width: 24px; height: 24px; }
+  .orb__label { font-size: 0.62rem; }
+}
+
+@media (max-width: 380px) {
+  .dive__orbs { grid-template-columns: repeat(3, 1fr); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .orb, .dive__bubble, .orb.is-on .orb__bubble::after { animation: none; }
+  .dive__zone { opacity: 1; transform: none; transition: none; }
+}
