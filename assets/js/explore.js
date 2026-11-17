@@ -46,6 +46,7 @@
     sound: '<path d="M4 12h0M8 8v8M12 5v14M16 8v8M20 11v2"/>',
     bubbles: '<circle cx="8" cy="15" r="4"/><circle cx="17" cy="9" r="3"/><circle cx="14" cy="19" r="1.8"/><circle cx="6" cy="6" r="1.5"/>',
     dive: '<path d="M12 3v14m0 0 5-5m-5 5-5-5M5 21h14"/>',
+    squid: '<path d="M12 2c-4 0-6 3-6 7 0 2 1 3 2 4M12 2c4 0 6 3 6 7 0 2-1 3-2 4M12 13v8M9 14l-1 7M15 14l1 7M7 12l-3 6M17 12l3 6"/><circle cx="10" cy="8" r=".8"/><circle cx="14" cy="8" r=".8"/>',
   };
 
   // action: what the "Try it" button does (omit when there is nothing to launch)
@@ -78,6 +79,7 @@
     { zone: "abyss", icon: "whale", title: "Meet the deep", key: "Scroll", text: "Glowing turtles, sharks, a whale, a manta and an anglerfish drift by.", action: "dive" },
     { zone: "abyss", icon: "shark", title: "Feed the deep", key: "Feed", text: "Catch a fish, drop it deep, and the giants swim over to eat it.", action: "watch" },
     { zone: "abyss", icon: "sound", title: "Whale songs", key: "Listen", text: "Whale calls drift over the music, more often the deeper you go.", action: "dive" },
+    { zone: "abyss", icon: "squid", title: "Giant squid", key: "Click", text: "Now and then a tentacle swipes a bubble away. Click its glowing eye if you dare." },
     { zone: "abyss", icon: "bubbles", title: "Bubble storm", key: "Shake", text: "Shake your phone and the whole screen fills with rising bubbles." },
   ];
 
@@ -207,7 +209,172 @@
     panel.classList.add("is-swap");
   }
 
+  // show a one-off message in the panel without changing the selection
+  function flashPanel(title, key, text, icon) {
+    current = -1;
+    orbs.forEach((o) => {
+      o.classList.remove("is-on");
+      o.setAttribute("aria-pressed", "false");
+    });
+    panel.style.setProperty("--z", "#ff6b9d");
+    pIcon.innerHTML = svg(icon);
+    pTitle.textContent = title;
+    pKey.textContent = key;
+    pDesc.textContent = text;
+    go.hidden = true;
+    panel.classList.remove("is-swap");
+    void panel.offsetWidth;
+    panel.classList.add("is-swap");
+  }
+
   select(0);
+
+
+  /* ----- the giant squid ------------------------------------------------
+     Now and then, while the Abyss band is on screen, a squid slides in from
+     the right edge, a tentacle sweeps across and swipes one bubble away (it
+     floats back after a few seconds). Click its glowing eye while it is out
+     and it lets off an ink cloud that fades the page out and back. */
+  const abyss = host.querySelector('[data-zone="abyss"]');
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+
+  if (abyss && !reduceMotion.matches) {
+    const NS = "http://www.w3.org/2000/svg";
+    const layer = document.createElement("div");
+    layer.className = "squid";
+    layer.innerHTML = `
+      <div class="squid__body"></div>
+      <button type="button" class="squid__eye" tabindex="-1" aria-label="Giant squid eye. Click to be inked."></button>
+      <svg class="squid__arm" aria-hidden="true"></svg>`;
+    abyss.appendChild(layer);
+
+    const eye = layer.querySelector(".squid__eye");
+    const arm = layer.querySelector(".squid__arm");
+    const abyssOrbs = [...abyss.querySelectorAll(".orb")];
+
+    let inView = false;
+    let busy = false;
+    let timer = 0;
+    let armPath = null;
+    let dotPath = null;
+
+    new IntersectionObserver(
+      (entries) => {
+        inView = entries[0].isIntersecting;
+        if (inView && !busy) schedule(4500);
+      },
+      { threshold: 0.35 }
+    ).observe(abyss);
+
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) clearTimeout(timer);
+      else if (inView && !busy) schedule(3000);
+    });
+
+    function schedule(ms) {
+      clearTimeout(timer);
+      timer = setTimeout(
+        () => {
+          if (inView && !document.hidden && !busy) attack();
+          else if (inView) schedule(6000);
+        },
+        ms == null ? 16000 + Math.random() * 12000 : ms
+      );
+    }
+
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+
+    async function attack() {
+      const free = abyssOrbs.filter((o) => !o.classList.contains("is-swiped") && !o.classList.contains("is-back"));
+      if (!free.length) return schedule();
+
+      busy = true;
+      const target = free[Math.floor(Math.random() * free.length)];
+      const zr = abyss.getBoundingClientRect();
+      const tr = target.querySelector(".orb__bubble").getBoundingClientRect();
+      const tx = tr.left + tr.width / 2 - zr.left;
+      const ty = tr.top + tr.height / 2 - zr.top;
+
+      const sx = zr.width + 30;
+      const sy = Math.min(zr.height - 40, Math.max(40, ty + (Math.random() * 120 - 60)));
+      const ex = tx - 80;
+      const ey = ty + (Math.random() * 40 - 20);
+      const dx = sx - ex;
+
+      arm.setAttribute("viewBox", `0 0 ${zr.width} ${zr.height}`);
+      arm.innerHTML = "";
+      armPath = document.createElementNS(NS, "path");
+      dotPath = document.createElementNS(NS, "path");
+      const d = `M ${sx} ${sy} C ${sx - dx * 0.3} ${sy - 90}, ${ex + dx * 0.4} ${ey + 90}, ${ex} ${ey}`;
+      armPath.setAttribute("d", d);
+      dotPath.setAttribute("d", d);
+      armPath.setAttribute("class", "squid__skin");
+      dotPath.setAttribute("class", "squid__suckers");
+      arm.append(armPath, dotPath);
+
+      const len = armPath.getTotalLength();
+      for (const p of [armPath, dotPath]) p.style.strokeDasharray = p === dotPath ? "1 11" : `${len}`;
+      armPath.style.strokeDashoffset = String(len);
+      dotPath.style.opacity = "0";
+
+      eye.style.top = `${sy}px`;
+      layer.classList.add("is-out");
+      await wait(520);
+
+      // reach across
+      armPath.animate([{ strokeDashoffset: len }, { strokeDashoffset: 0 }], { duration: 950, easing: "cubic-bezier(.3,.7,.3,1)", fill: "forwards" });
+      dotPath.style.opacity = "1";
+      dotPath.animate([{ clipPath: "inset(0 0 0 100%)" }, { clipPath: "inset(0 0 0 0)" }], { duration: 950, easing: "cubic-bezier(.3,.7,.3,1)", fill: "forwards" });
+      await wait(760);
+
+      // the swipe
+      target.classList.remove("is-on");
+      target.classList.add("is-swiped");
+      await wait(500);
+
+      // pull back
+      armPath.animate([{ strokeDashoffset: 0 }, { strokeDashoffset: -len }], { duration: 800, easing: "ease-in", fill: "forwards" });
+      dotPath.animate([{ clipPath: "inset(0 0 0 0)" }, { clipPath: "inset(0 0 0 100%)" }], { duration: 800, easing: "ease-in", fill: "forwards" });
+      await wait(700);
+
+      layer.classList.remove("is-out");
+      busy = false;
+      schedule();
+
+      // the bubble floats back after a few seconds
+      await wait(3500);
+      target.classList.remove("is-swiped");
+      target.classList.add("is-back");
+      setTimeout(() => target.classList.remove("is-back"), 800);
+    }
+
+    /* ----- ink ---------------------------------------------------------- */
+    let inking = false;
+
+    function ink() {
+      if (inking) return;
+      inking = true;
+      layer.classList.remove("is-out");
+
+      const cloud = document.createElement("div");
+      cloud.className = "ink";
+      cloud.setAttribute("aria-hidden", "true");
+      cloud.innerHTML = Array.from({ length: 7 }, (_, i) =>
+        `<span style="--x:${(i * 17 + 8) % 100}%;--y:${(i * 29 + 12) % 100}%;--s:${48 + (i * 13) % 34}vmax;--d:${(i % 4) * 0.08}s"></span>`
+      ).join("");
+      document.body.appendChild(cloud);
+      requestAnimationFrame(() => cloud.classList.add("is-on"));
+
+      flashPanel("Giant squid", "Ink!", "You startled it. It vanishes into the dark.", "squid");
+
+      setTimeout(() => {
+        cloud.remove();
+        inking = false;
+      }, 3000);
+    }
+
+    eye.addEventListener("click", ink);
+  }
 
   /* ----- rise in as the zone scrolls into view ------------------------ */
   const zones = host.querySelectorAll(".dive__zone");
