@@ -1,8 +1,9 @@
 /* ==========================================================================
    Things to explore: the dive chart
    Instead of a wall of text, every trick is a glowing bubble grouped by the
-   ocean zone it belongs to. Tap or hover a bubble and a short note appears in
-   the pinned panel, with a "Try it" button where the trick can be launched.
+   ocean zone it belongs to. Hover a bubble to read a short note in the pinned
+   panel; click or tap it to read the note and launch the trick (the panel's
+   "Try it" button does the same).
 
    TO ADD A FEATURE: add one object to ITEMS below (zone, icon, title, key,
    text, optional action). Nothing else needs touching.
@@ -155,7 +156,12 @@
     b.setAttribute("aria-pressed", "false");
     b.setAttribute("aria-controls", "dive-panel");
     b.innerHTML = `<span class="orb__bubble">${svg(item.icon)}</span><span class="orb__label">${esc(item.title)}</span>`;
-    b.addEventListener("click", () => select(i, true));
+    // Hover only previews. A click shows the note AND launches the trick.
+    b.addEventListener("click", () => {
+      select(i);
+      const act = ITEMS[i].action;
+      if (act && ACTIONS[act]) ACTIONS[act]();
+    });
     if (window.matchMedia("(hover: hover)").matches) b.addEventListener("pointerenter", () => select(i, false));
     zoneEl.appendChild(b);
     orbs.push(b);
