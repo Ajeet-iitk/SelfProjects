@@ -3582,3 +3582,59 @@ body.is-watching .nav {
 @media (prefers-reduced-motion: reduce) {
   .squid, .ink { display: none; }
 }
+
+/* squid raid: marked bubble, dodge, score, clickable tentacle */
+.orb { position: relative; }
+
+.orb.is-marked .orb__bubble {
+  border-color: #ff4d6d;
+  animation: markPulse 0.7s ease-in-out infinite;
+}
+
+.orb.is-marked::before {
+  content: "!";
+  position: absolute;
+  top: 2px;
+  right: calc(50% - 38px);
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #ff4d6d;
+  color: #fff;
+  font: 700 0.8rem var(--font-mono);
+  animation: markShake 0.4s ease-in-out infinite;
+}
+
+@keyframes markPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 77, 109, 0.8), inset 0 0 18px rgba(255, 77, 109, 0.3); }
+  50% { box-shadow: 0 0 0 12px rgba(255, 77, 109, 0), inset 0 0 18px rgba(255, 77, 109, 0.3); }
+}
+
+@keyframes markShake {
+  0%, 100% { transform: rotate(-8deg); }
+  50% { transform: rotate(8deg); }
+}
+
+.orb.is-dodge {
+  animation: orbDodge 0.9s var(--ease);
+}
+
+@keyframes orbDodge {
+  0% { transform: translateY(0) rotate(0) scale(1); }
+  35% { transform: translateY(-42px) rotate(200deg) scale(1.2); }
+  100% { transform: translateY(0) rotate(360deg) scale(1); }
+}
+
+.squid__skin {
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.dive__score {
+  margin-left: auto;
+  color: #ff9ec4;
+  letter-spacing: 0.06em;
+}

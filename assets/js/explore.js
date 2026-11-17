@@ -160,6 +160,10 @@
     b.innerHTML = `<span class="orb__bubble">${svg(item.icon)}</span><span class="orb__label">${esc(item.title)}</span>`;
     // Hover only previews. A click shows the note AND launches the trick.
     b.addEventListener("click", () => {
+      if (b.classList.contains("is-marked")) {
+        b.dispatchEvent(new CustomEvent("dodge"));
+        return;
+      }
       select(i);
       const act = ITEMS[i].action;
       if (act && ACTIONS[act]) ACTIONS[act]();
@@ -284,8 +288,10 @@
             <!-- eye -->
             <circle cx="96" cy="78" r="21" fill="#12040f" stroke="#ff9ec4" stroke-width="1.5"/>
             <circle cx="96" cy="78" r="16" fill="url(#sqIris)"/>
-            <ellipse cx="96" cy="78" rx="11" ry="5.5" fill="#0a0208"/>
-            <circle cx="90" cy="72" r="3.4" fill="#fff" opacity="0.9"/>
+            <g class="squid__pupil">
+              <ellipse cx="96" cy="78" rx="11" ry="5.5" fill="#0a0208"/>
+              <circle cx="90" cy="72" r="3.4" fill="#fff" opacity="0.9"/>
+            </g>
           </g>
         </svg>
         <button type="button" class="squid__eye" tabindex="-1" aria-label="Giant squid eye. Click to be inked."></button>
@@ -411,14 +417,90 @@
       suckerG.innerHTML = s;
     }
 
+    /* ----- the raid: a warning, a chance to save the bubble ----------------
+       The target bubble is marked with a red "!" and the panel says so. Click
+       the bubble (or the tentacle itself) before the tip lands and it dodges;
+       otherwise it gets swiped. A score tracks both. */
+    let raid = null;
+    let abort = false;
+    let progress = 0;
+    let saved = 0;
+    let swiped = 0;
+
+    const scoreEl = document.createElement("span");
+    scoreEl.className = "dive__score";
+    scoreEl.hidden = true;
+    const headEl = abyss.querySelector(".dive__head");
+    if (headEl) headEl.appendChild(scoreEl);
+
+    function updateScore() {
+      scoreEl.hidden = false;
+      scoreEl.textContent = `Saved ${saved} · Swiped ${swiped}`;
+    }
+
+    function save(message) {
+      if (!raid || raid.done || raid.dodged) return;
+      raid.dodged = true;
+      raid.orb.classList.remove("is-marked");
+      raid.orb.classList.add("is-dodge");
+      const o = raid.orb;
+      setTimeout(() => o.classList.remove("is-dodge"), 900);
+      flashPanel("Giant squid", "Saved!", message, "squid");
+    }
+
+    // clicking a marked bubble saves it (the bubble's own click handler fires "dodge")
+    abyssOrbs.forEach((o) =>
+      o.addEventListener("dodge", () => {
+        if (raid && raid.orb === o) save("Quick! The bubble hops out of reach.");
+      })
+    );
+
+    // poking the tentacle itself makes it recoil
+    skin.addEventListener("click", () => {
+      if (!raid || raid.done) return;
+      abort = true;
+      save("Ticklish! The squid yanks its tentacle back.");
+    });
+
+    // the pupil follows the pointer while the squid is out
+    const pupil = body.querySelector(".squid__pupil");
+    let lookQueued = false;
+    let lx = 0;
+    let ly = 0;
+
+    function look() {
+      lookQueued = false;
+      if (!pupil || !layer.classList.contains("is-out")) return;
+      const r = eye.getBoundingClientRect();
+      const dx = lx - (r.left + r.width / 2);
+      const dy = ly - (r.top + r.height / 2);
+      const d = Math.hypot(dx, dy) || 1;
+      const k = Math.min(1, d / 220);
+      pupil.setAttribute("transform", `translate(${((dx / d) * 6 * k).toFixed(2)} ${((dy / d) * 4 * k).toFixed(2)})`);
+    }
+
+    window.addEventListener(
+      "pointermove",
+      (e) => {
+        lx = e.clientX;
+        ly = e.clientY;
+        if (!lookQueued) {
+          lookQueued = true;
+          requestAnimationFrame(look);
+        }
+      },
+      { passive: true }
+    );
+
     function animateProgress(from, to, ms, easing) {
       return new Promise((resolve) => {
         const t0 = performance.now();
         const step = (now) => {
           const k = Math.min(1, (now - t0) / ms);
-          drawArm(from + (to - from) * easing(k));
-          if (k < 1) requestAnimationFrame(step);
-          else resolve();
+          progress = from + (to - from) * easing(k);
+          drawArm(progress);
+          if ((abort && to > from) || k >= 1) resolve();
+          else requestAnimationFrame(step);
         };
         requestAnimationFrame(step);
       });
@@ -429,7 +511,9 @@
       if (!free.length) return schedule();
 
       busy = true;
+      abort = false;
       const target = free[Math.floor(Math.random() * free.length)];
+      raid = { orb: target, dodged: false, done: false };
       const zr = abyss.getBoundingClientRect();
       const tr = target.querySelector(".orb__bubble").getBoundingClientRect();
       const tx = tr.left + tr.width / 2 - zr.left;
@@ -450,33 +534,56 @@
       const p2 = { x: p3.x + dx * 0.34, y: p3.y + 100 };
       curve = sampleCurve(p0, p1, p2, p3, 56);
       arm.setAttribute("viewBox", `0 0 ${zr.width} ${zr.height}`);
-      drawArm(0);
+      progress = 0.02;
+      drawArm(progress);
 
+      // warning: the squid appears and the victim is marked
       layer.classList.add("is-out");
-      await wait(650);
+      target.classList.add("is-marked");
+      const label = target.querySelector(".orb__label");
+      flashPanel("Look out!", "Squid", `It is after "${label ? label.textContent : "a bubble"}". Click that bubble to save it!`, "squid");
+      await wait(1500);
 
+      // reach across
       await animateProgress(0.02, 0.86, 1100, ease);
+      target.classList.remove("is-marked");
 
-      // the swipe: the tip flicks through the bubble
-      target.classList.remove("is-on");
-      target.classList.add("is-swiped");
-      await animateProgress(0.86, 1, 260, ease);
-      await wait(260);
+      if (!raid.dodged && !abort) {
+        // the swipe: the tip flicks through the bubble
+        target.classList.remove("is-on");
+        target.classList.add("is-swiped");
+        swiped += 1;
+        await animateProgress(progress, 1, 260, ease);
+        await wait(260);
+        flashPanel("Giant squid", "Swiped", "Too slow! It plucked a bubble away. It will float back.", "squid");
+      } else {
+        if (!abort) {
+          // a miss: the tip lashes at empty water
+          await animateProgress(progress, Math.min(1, progress + 0.1), 240, ease);
+          await wait(220);
+        }
+        saved += 1;
+      }
+      updateScore();
 
       // pull back
-      await animateProgress(1, 0.02, 900, (k) => k * k);
+      abort = false;
+      await animateProgress(progress, 0.02, 900, (k) => k * k);
       drawArm(0);
       layer.classList.remove("is-out");
+      raid.done = true;
       await wait(500);
 
       busy = false;
       schedule();
 
-      // the bubble floats back after a few seconds
-      await wait(3200);
-      target.classList.remove("is-swiped");
-      target.classList.add("is-back");
-      setTimeout(() => target.classList.remove("is-back"), 800);
+      // a swiped bubble floats back after a few seconds
+      if (target.classList.contains("is-swiped")) {
+        await wait(3200);
+        target.classList.remove("is-swiped");
+        target.classList.add("is-back");
+        setTimeout(() => target.classList.remove("is-back"), 800);
+      }
     }
 
     /* ----- ink ---------------------------------------------------------- */
